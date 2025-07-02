@@ -6,11 +6,11 @@ A Model Context Protocol (MCP) server for controlling Ameba IoT development boar
 
 ### Supported Devices
 
-| Device | Connection | WiFi | KVS Streaming | Snapshot |
-|--------|------------|------|---------------|----------|
-| Ameba Pro2 | ✅ Serial/TCP | ✅ | ✅ | ✅ |
-| Ameba D | ✅ Serial/TCP | ✅ | ❌ | ❌ |
-| Ameba Arduino | ✅ Serial/TCP | ✅ | ❌ | ❌ |
+| Device | Connection | WiFi | KVS Streaming | Snapshot | HEMS |
+|--------|------------|------|---------------|----------|------|
+| Ameba Pro2 | ✅ Serial/TCP | ✅ | ✅ | ✅ | ❌ |
+| Ameba D Plus| ✅ Serial/TCP | ✅ | ❌ | ❌ | ✅ |
+
 
 ### Core Functionality
 
@@ -19,6 +19,22 @@ A Model Context Protocol (MCP) server for controlling Ameba IoT development boar
 - **Snapshot Capture** (Pro2 only): Capture and download images via HTTP
 - **KVS Streaming** (Pro2 only): AWS Kinesis Video Streams with object detection
 - **Modular Architecture**: Load only the features supported by your device
+
+### HEMS Module (D Plus Only)
+
+Home Energy Management System functions for solar inverters and grid management.
+
+| Function | Description | Returns |
+|----------|-------------|---------|
+| `hems_identify()` | Get device chipset identification | Device name |
+| `hems_start_logging(device)` | Start logging to filesystem | Status with timestamp |
+| `hems_stop_logging(device)` | Stop logging | Status with timestamp |
+| `hems_download_logs(device, start_date, end_date)` | Download logs | List of log entries |
+| `hems_get_alerts(device)` | Get system alerts | List of alerts |
+| `hems_get_control_plan(device)` | Get current control plan | Current plan name |
+| `hems_get_available_control_plans(device)` | List available plans | List of plan names |
+| `hems_set_control_plan(device, control_plan)` | Set control plan | Status |
+| `hems_get_statistics(device)` | Get system statistics | Grid and energy data |
 
 ## Prerequisites
 
@@ -128,7 +144,7 @@ Core functions for device connection management.
 
 #### `connect(port, baudrate=115200)`
 - **port** (str): Serial port name - "COM4" (Windows), "/dev/ttyUSB0" (Linux)
-- **baudrate** (int): Communication speed - default 115200
+- **baudrate** (int): Communication speed - default 115200 (pro2), 1500000 for d-plus
 
 #### `tcp_connect(host, port=23)`
 - **host** (str): Device IP address - e.g., "192.168.0.102"
