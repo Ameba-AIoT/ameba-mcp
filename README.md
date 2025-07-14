@@ -16,8 +16,8 @@ A Model Context Protocol (MCP) server for controlling Ameba IoT development boar
 
 - **Dual Connection Support**: Connect via Serial (USB) or TCP/IP (Telnet)
 - **WiFi Management**: Scan networks, connect, and check status
-- **Snapshot Capture** (Pro2 only): Capture and download images via HTTP
-- **KVS Streaming** (Pro2 only): AWS Kinesis Video Streams with object detection
+- **Snapshot Capture (Pro2 only)**: Capture and download images via HTTP
+- **KVS Streaming (Pro2 only)**: AWS Kinesis Video Streams with object detection
 - **HEMS Module (D Plus Only)**: Home Energy Management System functions for solar inverters and grid management.
 - **Modular Architecture**: Load only the features supported by your device
 
