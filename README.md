@@ -1,6 +1,6 @@
 # Ameba MCP Server
 
-A Model Context Protocol (MCP) server for controlling Ameba IoT development boards. This server provides a unified interface for interacting with multiple Ameba product lines including Ameba Pro2, Ameba D, and Ameba Arduino.
+A Model Context Protocol (MCP) server for controlling Ameba IoT development boards. This server provides a unified interface for interacting with multiple Ameba product lines including Ameba Pro2 and Ameba D Plus.
 
 ## Features
 
@@ -86,18 +86,49 @@ Windows: %APPDATA%\Claude\claude_desktop_config.json
 
 ```
 
+Users can define product configurations and add modules specific to each product.
+
+```python
+PRODUCT_CONFIGS = {
+    "ameba-pro2": {
+        "name": "Ameba Pro2",
+        "modules": ["connection", "wifi", "kvs", "snapshot"]
+    },
+    "ameba-d": {
+        "name": "Ameba D",
+        "modules": ["connection", "wifi", "hems"]
+    }
+}
+
+```
+
+
 ### 3. Project Structure
 
 ```bash
 ameba-mcp/
-├── README.md              # This file
-├── LICENSE               # MIT license
+├── README.md              
+├── api_docs/
+│     ├── connection.md
+│     ├── wifi.md    
+│     ├── snapshot.md    
+│     ├── kvs.md    
+│     └── hems.md    
 ├── pyproject.toml        # UV package configuration
-├── .gitignore           # Git ignore rules
+├── .gitignore            # Git ignore rules
 ├── src/
 │   └── ameba_mcp/
+│       ├── modules/      # Define each module
+│            ├── __init__.py
+│            ├── connection_manager.py 
+│            ├── connection_module.py
+│            ├── feature_module.py    
+│            ├── hems_module.py      
+│            ├── kvs_module.py      
+│            ├── snapshot_module.py  
+│            └── wifi_module.py   
 │       ├── __init__.py
-└──       └── server.py    # Main server implementation
+└──     └── server.py    # Pack each module into Ameba product server
 
 ```
 
@@ -107,7 +138,7 @@ Adding new features
 
 1. Create a new module class inheriting from FeatureModule
 2. Implement required methods: get_tools(), handle_tool(), module_name
-3. Add module to product configuration in PRODUCT_CONFIGS
+3. Add module to product configuration in PRODUCT_CONFIGS in server.py
 4. Update module loading in ModularAmebaServer._load_modules()
 
 
@@ -115,181 +146,21 @@ Adding new features
 
 ### Connection Module
 
-Core functions for device connection management.
-
-| Function | Description | Returns |
-|----------|-------------|---------|
-| `list_ports()` | List available serial ports | Dict with port list |
-| `connect(port, baudrate=115200)` | Connect via serial | Connection status |
-| `tcp_connect(host, port=23)` | Connect via TCP/Telnet | Connection status |
-| `disconnect(connection_type="all")` | Close connections | Disconnect results |
-| `connection_status()` | Check active connections | Status dict |
-| `send_command(command, connection=None)` | Send AT command | Command response |
-
-<details>
-<summary>📘 Detailed Parameters</summary>
-
-#### `connect(port, baudrate=115200)`
-- **port** (str): Serial port name - "COM4" (Windows), "/dev/ttyUSB0" (Linux)
-- **baudrate** (int): Communication speed - default 115200 (pro2), 1500000 for d-plus
-
-#### `tcp_connect(host, port=23)`
-- **host** (str): Device IP address - e.g., "192.168.0.102"
-- **port** (int): TCP port - default 23 (Telnet)
-
-#### `disconnect(connection_type="all")`
-- **connection_type** (str): "serial", "tcp", or "all" - default "all"
-
-#### `send_command(command, connection=None)`
-- **command** (str): AT command to send
-- **connection** (str|None): "serial", "tcp", or None for auto-detect
-
-</details>
+[Link to Connection Module](./api_docs/connection.md)
 
 ### WiFi Module
 
-WiFi network management functions.
-
-| Function | Description | Returns |
-|----------|-------------|---------|
-| `wifi_scan(connection=None)` | Scan for available networks | List of networks with RSSI |
-| `wifi_connect(ssid, password)` | Connect to WiFi network | Connection result |
-| `wifi_status(connection=None)` | Get current WiFi status | Status with IP, SSID, etc |
-
-<details>
-<summary>📘 Detailed Parameters</summary>
-
-#### `wifi_scan(connection=None)`
-- **connection** (str|None): Force "serial" or "tcp", None for auto-detect
-- **Note**: TCP may truncate results with 60+ networks
-
-#### `wifi_connect(ssid, password)`
-- **ssid** (str): Network name to connect to
-- **password** (str): Network password
-- **Note**: Only works via serial connection
-
-#### `wifi_status(connection=None)`
-- **connection** (str|None): Force "serial" or "tcp", None for auto-detect
-
-</details>
+[Link to WiFi Module](./api_docs/wifi.md)
 
 ### Snapshot Module (Pro2 Only)
 
-Image capture and download functions.
-
-| Function | Description | Returns |
-|----------|-------------|---------|
-| `snapshot_capture(connection=None)` | Capture image on device | Capture status with filename |
-| `snapshot_download(filename, device_ip, save_path)` | Download single image | Download status with path |
-| `snapshot_download_all(device_ip, save_path, max_files)` | Download all images | List of downloaded files |
-
-<details>
-<summary>📘 Detailed Parameters</summary>
-
-#### `snapshot_capture(connection=None)`
-- **connection** (str|None): Force "serial" or "tcp", None for auto-detect
-- **Returns**: Dict with filename and capture status
-
-#### `snapshot_download(filename, device_ip, save_path="./downloads/")`
-- **filename** (str): Image filename on device (e.g., "1.jpg")
-- **device_ip** (str): Device IP address
-- **save_path** (str): Local directory to save - default "./downloads/"
-
-#### `snapshot_download_all(device_ip, save_path="./downloads/", max_files=100)`
-- **device_ip** (str): Device IP address
-- **save_path** (str): Local directory to save
-- **max_files** (int): Maximum files to attempt - default 100
-
-</details>
+[Link to Snapshot Module](./api_docs/snapshot.md)
 
 ### KVS Module (Pro2 Only)
 
-AWS Kinesis Video Streams with object detection.
-
-| Function | Description | Returns |
-|----------|-------------|---------|
-| `kvs_set_objects(objects)` | Set objects to detect | Status with objects list |
-| `kvs_reactivate()` | Reactivate with same objects | Reactivation status |
-| `kvs_wait_for_start(timeout=180)` | Wait for recording to begin | Recording start status |
-| `kvs_wait_for_completion(timeout=60)` | Wait for recording to end | Recording completion status |
-
-<details>
-<summary>📘 Detailed Parameters</summary>
-
-#### `kvs_set_objects(objects)`
-- **objects** (List[str]): COCO dataset objects - e.g., ["person", "car", "dog"]
-- **Note**: Triggers 30-second recording when object detected
-
-#### `kvs_reactivate()`
-- No parameters - uses previously set objects
-- **Note**: Use after recording completes to re-arm detection
-
-#### `kvs_wait_for_start(timeout=180)`
-- **timeout** (float): Maximum seconds to wait - default 180
-- **Note**: Returns immediately when recording starts
-
-#### `kvs_wait_for_completion(timeout=60)`
-- **timeout** (float): Maximum seconds to wait - default 60
-- **Note**: Returns immediately when recording completes
-
-</details>
+[Link to KVS Module](./api_docs/kvs.md)
 
 ### HEMS Module (D Plus Only)
 
-Home Energy Management System functions for solar inverters and grid management.
-
-| Function | Description | Returns |
-|----------|-------------|---------|
-| `hems_identify()` | Get device chipset identification | Device name |
-| `hems_start_logging(device)` | Start logging to filesystem | Status with timestamp |
-| `hems_stop_logging(device)` | Stop logging | Status with timestamp |
-| `hems_download_logs(device, start_date, end_date)` | Download logs | List of log entries |
-| `hems_get_alerts(device)` | Get system alerts | List of alerts |
-| `hems_get_control_plan(device)` | Get current control plan | Current plan name |
-| `hems_get_available_control_plans(device)` | List available plans | List of plan names |
-| `hems_set_control_plan(device, control_plan)` | Set control plan | Status |
-| `hems_get_statistics(device)` | Get system statistics | Grid and energy data |
-
-<details>
-<summary>📘 Detailed Parameters</summary>
-
-#### `hems_identify()`
-- **Returns**: Dict with device chipset name and firmware version
-
-#### `hems_start_logging(device)`
-- **device** (str): Device identification name - unique identifier for the HEMS unit
-- **Returns**: Dict with status and start timestamp
-
-#### `hems_stop_logging(device)`
-- **device** (str): Device identification name
-- **Returns**: Dict with status and stop timestamp
-
-#### `hems_download_logs(device, start_date="", end_date="")`
-- **device** (str): Device identification name
-- **start_date** (str): Start date for log retrieval - format "YYYY-MM-DD" or "YYYY-MM-DD HH:MM:SS", empty for first entry
-- **end_date** (str): End date for log retrieval - format "YYYY-MM-DD" or "YYYY-MM-DD HH:MM:SS", empty for last entry
-- **Returns**: List of log entries with timestamps and events
-
-#### `hems_get_alerts(device)`
-- **device** (str): Device identification name
-- **Returns**: List of system alerts requiring user attention
-
-#### `hems_get_control_plan(device)`
-- **device** (str): Device identification name
-- **Returns**: Dict with current control plan name and settings
-
-#### `hems_get_available_control_plans(device)`
-- **device** (str): Device identification name
-- **Returns**: List of available control plan names
-
-#### `hems_set_control_plan(device, control_plan)`
-- **device** (str): Device identification name
-- **control_plan** (str): Control plan name - "At Home", "Out of Home", "Night Mode", "Quick Heating", "Quick Cooling"
-- **Returns**: Dict with status and confirmation
-
-#### `hems_get_statistics(device)`
-- **device** (str): Device identification name
-- **Returns**: Dict with grid voltage, power data, solar output, battery status, and energy metrics
-
-</details>
+[Link to HEMS Module](./api_docs/hems.md)
 
