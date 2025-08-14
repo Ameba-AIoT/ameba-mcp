@@ -2,6 +2,18 @@
 
 A Model Context Protocol (MCP) server for controlling Ameba IoT development boards. This server provides a unified interface for interacting with multiple Ameba product lines including Ameba Pro2 and Ameba D Plus.
 
+
+## System Architecture
+![Architecture diagram](images/ameba-mcp_scenario.png)
+
+### Example
+
+### Energy Management
+![Energy Example](images/energy.png)
+
+### Healthcare
+![Healthcare Example](images/healthcare.png)
+
 ## Features
 
 ### Supported Devices
