@@ -1,0 +1,717 @@
+diff --git a/amebadplus_gcc_project/Kconfig b/amebadplus_gcc_project/Kconfig
+index a1cd9ece..a96f12b0 100644
+--- a/amebadplus_gcc_project/Kconfig
++++ b/amebadplus_gcc_project/Kconfig
+@@ -132,10 +132,6 @@ menu "CONFIG APPLICATION"
+ 
+     orsource "${RTK_APP_DIR}/Kconfig"
+ 
+-    config USE_ATCMD_MQTT
+-        bool "Enable ATCMD over MQTT"
+-        default n
+-
+ endmenu
+ 
+ 
+diff --git a/component/at_cmd/CMakeLists.txt b/component/at_cmd/CMakeLists.txt
+index a5751c71..a1d02e01 100644
+--- a/component/at_cmd/CMakeLists.txt
++++ b/component/at_cmd/CMakeLists.txt
+@@ -38,8 +38,9 @@ set(private_compile_options)         #private compile_options
+ 
+ #NOTE: User defined section, add your private build configures here
+ # You may use if-else condition to set these predefined variable
+-ameba_list_append(private_sources monitor.c)
+-
++ameba_list_append(private_sources
++    monitor.c
++)
+ if(CONFIG_CORE_AS_AP AND CONFIG_SUPPORT_ATCMD)
+     ameba_list_append(private_sources
+         atcmd_service.c
+@@ -48,7 +49,6 @@ if(CONFIG_CORE_AS_AP AND CONFIG_SUPPORT_ATCMD)
+         atcmd_bt_mp.c
+         atcmd_otp.c
+         atcmd_coex.c
+-        at_intf_split.c
+     )
+     ameba_list_append_if(CONFIG_WLAN private_sources
+         atcmd_http.c
+@@ -72,12 +72,6 @@ if(CONFIG_CORE_AS_AP AND CONFIG_SUPPORT_ATCMD)
+         )
+     endif()
+ endif()
+-
+-ameba_list_append(private_includes
+-    ${c_COMPONENT_DIR}/at_cmd
+-    ${c_COMPONENT_DIR}/at_cmd/at_intf
+-    ${c_CMPT_EXAMPLE_DIR}/network_protocol/mqtt
+-)
+ # Component private part, user config end(DO NOT remove this line)
+ #------------------------------------------------------------------#
+ 
+diff --git a/component/at_cmd/at_intf_split.c b/component/at_cmd/at_intf_split.c
+deleted file mode 100644
+index a1b132d0..00000000
+--- a/component/at_cmd/at_intf_split.c
++++ /dev/null
+@@ -1,139 +0,0 @@
+-/*
+-
+-Interface to fork ATCMD output to both UART and over MQTT transport
+-
+-Requires MQTT example to be running in order to publish over MQTT
+-
+-*/
+-
+-#include "at_intf_uart.h"
+-#include "at_intf_split.h"
+-#include "atcmd_service.h"
+-#include "MQTTClient.h"
+-#include "example_mqtt.h"
+-
+-#define SPLIT_BUFFER_SIZE MQTT_BUFFER_TX_SIZE
+-#define FLUSH_TIMEOUT_MS 100
+-#define FORCE_FLUSH_THRESHOLD (SPLIT_BUFFER_SIZE / 4 * 3) // 75% of buffer size
+-
+-typedef struct {
+-    char data[SPLIT_BUFFER_SIZE];
+-    volatile uint32_t pos;
+-    rtos_timer_t flush_timer;
+-    rtos_mutex_t flush_mutex;
+-    volatile uint8_t timer_active;
+-} split_buffer_t;
+-
+-extern void atio_uart_output(char *buf, int len);
+-
+-static split_buffer_t g_buffer;
+-
+-static int timed_buffer_add(const char* data, uint16_t len);
+-
+-// called externally by at_printf, responsible for routing the output to both UART and MQTT
+-void atio_split_output(char *buf, int len) {
+-    // write to uart output if enabled
+-#if defined(SPLIT_ENABLE_UART_OUTPUT) && (SPLIT_ENABLE_UART_OUTPUT == 1)
+-    RTK_LOGS(NOTAG, RTK_LOG_ALWAYS, buf);
+-#endif
+-
+-    // buffer any prints here, it will be periodically published to MQTT
+-    timed_buffer_add(buf, len);
+-}
+-// ====================================================
+-
+-static void flush_buffer_internal(void) {
+-    if (g_buffer.pos > 0) {
+-        RTK_LOGI(NOTAG, "@@@@@@@@ FLUSH BUFFER INTERNAL @@@@@@@@\n");
+-        // Send buffer to UART
+-        wrap_mqtt_publish_message(g_buffer.data, g_buffer.pos);
+-        
+-        // Reset buffer
+-        g_buffer.pos = 0;
+-        
+-        // Stop the timer since we just flushed
+-        if (g_buffer.timer_active) {
+-            rtos_timer_stop(g_buffer.flush_timer, 0);
+-            g_buffer.timer_active = 0;
+-        }
+-    }
+-}
+-
+-static int timed_buffer_add(const char* data, uint16_t len) {
+-    if (!data || len == 0) {
+-        return -1;
+-    }
+-
+-    if (rtos_mutex_take(g_buffer.flush_mutex, RTOS_MAX_TIMEOUT) != RTK_SUCCESS) {
+-        RTK_LOGE(NOTAG, "Failed to obtain flush mutex\n");
+-        return -2;
+-    }
+-
+-    if (g_buffer.pos + len >= SPLIT_BUFFER_SIZE) {
+-        flush_buffer_internal();   
+-    }
+-
+-    // add data
+-    memcpy(&g_buffer.data[g_buffer.pos], data, len);
+-    g_buffer.pos += len;
+-
+-    if (g_buffer.pos >= FORCE_FLUSH_THRESHOLD) {
+-        flush_buffer_internal();
+-        rtos_mutex_give(g_buffer.flush_mutex);
+-        return len;
+-    }
+-
+-    rtos_timer_start(g_buffer.flush_timer, 0);
+-    g_buffer.timer_active = 1;
+-
+-    rtos_mutex_give(g_buffer.flush_mutex);
+-    return len;
+-}
+-
+-static void flush_timer_callback(void *arg) {
+-    UNUSED(arg);
+-
+-    if (rtos_mutex_take(g_buffer.flush_mutex, RTOS_MAX_TIMEOUT) != RTK_SUCCESS) {
+-        RTK_LOGE(NOTAG, "Failed to take flush mutex\n");
+-    } else {
+-        RTK_LOGI(NOTAG, "Flush callback trigger!\n");
+-        g_buffer.timer_active = 0;  // stop the timer, it will be restarted on next add
+-
+-        if (g_buffer.pos > 0) {
+-            flush_buffer_internal();
+-        }
+-
+-        rtos_mutex_give(g_buffer.flush_mutex);
+-    }
+-}
+-
+-static int split_buffer_init(void) {
+-    memset(&g_buffer, 0, sizeof(g_buffer));
+-
+-    // init mutex
+-    rtos_mutex_create(&g_buffer.flush_mutex);
+-
+-    if (g_buffer.flush_mutex == NULL) {
+-        RTK_LOGE(NOTAG, "Failed to create flush mutex\n");
+-        return -1;
+-    }
+-
+-    // init timer 
+-    rtos_timer_create(&g_buffer.flush_timer, "split_flush_timer", NULL, FLUSH_TIMEOUT_MS, FALSE, flush_timer_callback);
+-
+-    if (g_buffer.flush_timer == NULL) {
+-        RTK_LOGE(NOTAG, "Failed to create flush timer\n");
+-        rtos_mutex_delete(&g_buffer.flush_mutex);
+-        return -2;
+-    }
+-
+-    return 0;
+-}
+-
+-int atio_split_init(void)
+-{
+-	out_buffer = atio_split_output;
+-	RTK_LOGI(NOTAG, "[%s] out_buffer set to split buffer\n", __FUNCTION__);
+-
+-    return split_buffer_init();
+-}
+\ No newline at end of file
+diff --git a/component/at_cmd/at_intf_split.h b/component/at_cmd/at_intf_split.h
+deleted file mode 100644
+index 12821eb2..00000000
+--- a/component/at_cmd/at_intf_split.h
++++ /dev/null
+@@ -1,17 +0,0 @@
+-/*
+- * Copyright (c) 2024 Realtek Semiconductor Corp.
+- *
+- * SPDX-License-Identifier: Apache-2.0
+- */
+-
+-#ifndef AT_INTF_SPLIT_H
+-#define AT_INTF_SPLIT_H
+-
+-#include "ameba_soc.h"
+-
+-#define SPLIT_ENABLE_UART_OUTPUT 1
+-
+-_LONG_CALL_ void atio_split_output(char *buf, int len);
+-_LONG_CALL_ int atio_split_init(void);
+-
+-#endif /* AT_INTF_SPLIT_H */
+\ No newline at end of file
+diff --git a/component/at_cmd/atcmd_service.c b/component/at_cmd/atcmd_service.c
+index 0ff88c3a..77246483 100644
+--- a/component/at_cmd/atcmd_service.c
++++ b/component/at_cmd/atcmd_service.c
+@@ -13,7 +13,6 @@
+ #include "at_intf_uart.h"
+ #include "at_intf_spi.h"
+ #include "at_intf_sdio.h"
+-#include "at_intf_split.h"
+ #include "atcmd_service.h"
+ #include "vfs.h"
+ #include "kv.h"
+@@ -52,8 +51,6 @@
+ #include "atcmd_otp.h"
+ #endif
+ 
+-//#include "atcmd_hems.h"
+-#include "example_mqtt.h"
+ //======================================================
+ struct list_head log_hash[ATC_INDEX_NUM];
+ 
+@@ -106,58 +103,8 @@ log_init_t log_init_table[] = {
+ #ifndef CONFIG_AMEBAD
+ 	at_otp_init,
+ #endif
+-	at_exmqtt_init
+ };
+ 
+-char global_buf[SMALL_BUF];
+-at_write out_buffer;
+-int at_printf(const char *fmt, ...)
+-{
+-	int ret = -1;
+-	int len_fmt = 0;
+-	char *buf;
+-
+-	at_printf_lock();
+-
+-	va_list ap;
+-	va_start(ap, fmt);
+-	len_fmt = vsnprintf(global_buf, SMALL_BUF, fmt, ap);
+-	va_end(ap);
+-
+-	if (len_fmt < 0) {
+-		goto fail;
+-	}
+-
+-	if (len_fmt < SMALL_BUF) {
+-		buf = global_buf;
+-	} else if (len_fmt < MAX_BUF_LEN) {
+-		buf = (char *)rtos_mem_malloc(len_fmt + 1);
+-		if (buf == NULL) {
+-			goto fail;
+-		}
+-
+-		va_start(ap, fmt);
+-		vsnprintf(buf, len_fmt + 1, fmt, ap);
+-		va_end(ap);
+-	} else {
+-		RTK_LOGE(TAG, "print string len %d exceed max buffer length : %d\n", (int)len_fmt, MAX_BUF_LEN);
+-		goto fail;
+-	}
+-
+-	ret = len_fmt;
+-
+-	if (out_buffer) {
+-		out_buffer(buf, len_fmt);
+-	}
+-
+-	if (len_fmt >= SMALL_BUF) {
+-		rtos_mem_free(buf);
+-	}
+-
+-fail:
+-	at_printf_unlock();
+-	return ret;
+-}
+ 
+ //======================================================
+ #if defined(CONFIG_ATCMD_HOST_CONTROL)
+@@ -723,8 +670,6 @@ void atcmd_service_init(void)
+ 
+ 	rtos_mutex_recursive_create(&at_printf_mutex);
+ 
+-	atio_split_init();
+-
+ #ifdef CONFIG_ATCMD_HOST_CONTROL
+ 	rtos_timer_create(&xTimers_TT_Mode, "TT_Mode_Timer", NULL, 30, FALSE, tt_mode_timeout_handler);
+ 
+diff --git a/component/at_cmd/atcmd_service.h b/component/at_cmd/atcmd_service.h
+index ec7856bb..a6da0dfa 100644
+--- a/component/at_cmd/atcmd_service.h
++++ b/component/at_cmd/atcmd_service.h
+@@ -100,9 +100,6 @@ enum {
+ 	AT_HOST_CONTROL_UART = 1,
+ 	AT_HOST_CONTROL_SPI,
+ 	AT_HOST_CONTROL_SDIO,
+-
+-	// FOR ATCMD SPLIT MQTT
+-	AT_HOST_CONTROL_SPLIT_UART_MQTT,
+ };
+ 
+ int atcmd_get_ssl_certificate(char *buffer, CERT_TYPE cert_type, int index);
+@@ -117,10 +114,7 @@ extern at_write out_buffer;
+ int at_printf(const char *fmt, ...);
+ int at_printf_indicate(const char *fmt, ...);
+ #else
+-//#define at_printf(fmt, args...)    RTK_LOGS(NOTAG, RTK_LOG_ALWAYS, fmt, ##args)
+-typedef void (*at_write)(char *buf, int len);
+-extern at_write out_buffer;
+-extern int at_printf(const char *fmt, ...);
++#define at_printf(fmt, args...)    RTK_LOGS(NOTAG, RTK_LOG_ALWAYS, fmt, ##args)
+ #define at_printf_indicate(fmt, args...) \
+ 		RTK_LOGS(NOTAG, RTK_LOG_ALWAYS, "[$]");\
+ 		RTK_LOGS(NOTAG, RTK_LOG_ALWAYS, fmt, ##args)
+diff --git a/component/example/network_protocol/mqtt/CMakeLists.txt b/component/example/network_protocol/mqtt/CMakeLists.txt
+index d105a066..ad8362e7 100644
+--- a/component/example/network_protocol/mqtt/CMakeLists.txt
++++ b/component/example/network_protocol/mqtt/CMakeLists.txt
+@@ -1,9 +1,5 @@
+ ameba_internal_library(example_mqtt)
+ 
+-if (USE_ATCMD_MQTT)
+-    add_definitions(-DUSE_ATCMD_MQTT)
+-endif()
+-
+ target_sources(
+     ${CURRENT_LIB_NAME} PRIVATE
+     example_mqtt.c
+diff --git a/component/example/network_protocol/mqtt/example_mqtt.c b/component/example/network_protocol/mqtt/example_mqtt.c
+index a5cd01ae..6eb31a7c 100644
+--- a/component/example/network_protocol/mqtt/example_mqtt.c
++++ b/component/example/network_protocol/mqtt/example_mqtt.c
+@@ -1,92 +1,108 @@
+ #include "lwip_netconf.h"
+ #include "MQTTClient.h"
+-#include "atcmd_service.h"
+-#include "example_mqtt.h"
+ 
+ #define MQTT_SELECT_TIMEOUT 1
+-#define MQTT_TASK
+ 
+-typedef struct {
+-	char clientID[64];
+-	char username[64];
+-	char password[64];
+-	char address[64];
+-	char pub_topic[128];
+-	char sub_topic[128];
+-	uint16_t port;
+-	uint8_t configured;
+-} mqtt_config_t;
++static void messageArrived(MessageData *data, void *discard)
++{
++	(void)discard;
++	mqtt_printf(MQTT_INFO, "Message arrived on topic %s: %s\n", data->topicName->lenstring.data, (char *)data->message->payload);
++}
+ 
+-static const char* atcmd_header = "AT+";
++//This example is original and cannot restart if failed. To use this example, define WAIT_FOR_ACK and not define MQTT_TASK in MQTTClient.h
++void prvMQTTEchoTask(void *pvParameters)
++{
++	/* To avoid gcc warnings */
++	(void) pvParameters;
+ 
+-static MQTTClient client;
++	/* connect to gpssensor.ddns.net, subscribe to a topic, send and receive messages regularly every 5 sec */
++	MQTTClient client;
++	Network network;
++	unsigned char sendbuf[512], readbuf[80];
++	int rc = 0, count = 0;
++	MQTTPacket_connectData connectData = MQTTPacket_connectData_initializer;
++	const char *address = "broker.emqx.io";
++	const char *sub_topic = "LASS/Test/Pm25Ameba/#";
++	const char *pub_topic = "LASS/Test/Pm25Ameba/FT1_018";
+ 
+-static mqtt_config_t mqtt_config = {
+-	.clientID = "amebadplus",
+-	.username = "",
+-	.password = "",
+-	.address = "",
+-	.pub_topic = "",
+-	.sub_topic = "",
+-	.port = 1883,
+-	.configured = 0
+-};
++	memset(readbuf, 0x00, sizeof(readbuf));
+ 
+-static char payload[MQTT_BUFFER_TX_SIZE] = { 0 };
++	NetworkInit(&network);
++	MQTTClientInit(&client, &network, 30000, sendbuf, sizeof(sendbuf), readbuf, sizeof(readbuf));
+ 
+-static uint8_t check_mqtt_config_complete(void);
++	mqtt_printf(MQTT_INFO, "Wait Wi-Fi to be connected.");
++	// Delay to check successful WiFi connection and obtain of an IP address
++	LwIP_Check_Connectivity();
++	mqtt_printf(MQTT_INFO, "Wi-Fi connected.");
+ 
+-void MQTTPublishMessage(MQTTClient *c, char *topic, char* to_send, uint32_t len);
++	mqtt_printf(MQTT_INFO, "Connect Network \"%s\"", address);
++	while ((rc = NetworkConnect(&network, (char *)address, 1883)) != 0) {
++		mqtt_printf(MQTT_INFO, "Return code from network connect is %d\n", rc);
++		rtos_time_delay_ms(1000);
++	}
++	mqtt_printf(MQTT_INFO, "\"%s\" Connected", address);
+ 
+-void wrap_mqtt_publish_message(char *buf, uint32_t len) {
+-	MQTTPublishMessage(&client, mqtt_config.pub_topic, buf, len);
+-}
++	connectData.MQTTVersion = 3;
++	connectData.clientID.cstring = (char *)"FT1_018";
+ 
+-extern void at_state(void *arg);
+-extern int atcmd_service(char *line_buf);
+-static void messageArrived(MessageData *data, void *discard)
+-{
+-	(void)discard;
+-	char buf[128] = { 0 };
+-	memcpy(buf, data->topicName->lenstring.data, data->topicName->lenstring.len);
+-	mqtt_printf(MQTT_INFO, "Message arrived on topic %s: %s\n", buf, (char *)data->message->payload);
+-	
+-	if (memcmp(data->message->payload, atcmd_header, strlen(atcmd_header)) == 0) {
+-		mqtt_printf(MQTT_INFO, "Processing atcmd...\n");
++	mqtt_printf(MQTT_INFO, "Start MQTT connection");
++	while ((rc = MQTTConnect(&client, &connectData)) != 0) {
++		mqtt_printf(MQTT_INFO, "Return code from MQTT connect is %d\n", rc);
++		rtos_time_delay_ms(1000);
++	}
++	mqtt_printf(MQTT_INFO, "MQTT Connected");
+ 
+-		// run the ATCMD, it will write to UART then publish a mqtt message
+-		atcmd_service((char *)data->message->payload);
++	mqtt_printf(MQTT_INFO, "Subscribe to Topic: %s", sub_topic);
++	if ((rc = MQTTSubscribe(&client, sub_topic, QOS2, messageArrived)) != 0) {
++		mqtt_printf(MQTT_INFO, "Return code from MQTT subscribe is %d\n", rc);
+ 	}
+ 
+-	// clear the payload buffer
+-	memset(data->message->payload, 0, data->message->payloadlen);
+-	data->message->payloadlen = 0;
++	mqtt_printf(MQTT_INFO, "Publish Topics: %s", pub_topic);
++	while (1) {
++		MQTTMessage message;
++		char payload[300];
++
++		if (++count == 0) {
++			count = 1;
++		}
++
++		message.qos = QOS1;
++		message.retained = 0;
++		message.payload = payload;
++		sprintf(payload, "hello from AMEBA %d", count);
++		message.payloadlen = strlen(payload);
++
++		if ((rc = MQTTPublish(&client, pub_topic, &message)) != 0) {
++			mqtt_printf(MQTT_INFO, "Return code from MQTT publish is %d\n", rc);
++		}
++		if ((rc = MQTTYield(&client, 1000)) != 0) {
++			mqtt_printf(MQTT_INFO, "Return code from yield is %d\n", rc);
++		}
++		rtos_time_delay_ms(5000);
++	}
++	/* do not return */
+ }
+ 
+ #if defined(MQTT_TASK)
+-void MQTTPublishMessage(MQTTClient *c, char *topic, char* to_send, uint32_t len)
++void MQTTPublishMessage(MQTTClient *c, char *topic)
+ {
+ 	int rc = 0;
+-	//static int count = 0;
++	static int count = 0;
+ 	MQTTMessage message;
+-	
++	char payload[300];
+ 	message.qos = QOS1;
+ 	message.retained = 0;
+ 	message.payload = payload;
+ 
+ 	if (c->mqttstatus == MQTT_RUNNING) {
+-		if (len > 0 && len <= sizeof(payload)) {
+-			sprintf(payload, to_send, len);
+-			message.payloadlen = len;
+-			mqtt_printf(MQTT_INFO, "Publish Topic %s", topic);
+-			if ((rc = MQTTPublish(c, topic, &message)) != 0) {
+-				mqtt_printf(MQTT_INFO, "Return code from MQTT publish is %d\n", rc);
+-				MQTTSetStatus(c, MQTT_START);
+-				c->ipstack->disconnect(c->ipstack);
+-			} else {
+-				// set payload to empty string after publish
+-				memset(payload, 0, sizeof(payload));
+-			}
++		count++;
++		sprintf(payload, "hello from AMEBA %d", count);
++		message.payloadlen = strlen(payload);
++		mqtt_printf(MQTT_INFO, "Publish Topic %s : %d", topic, count);
++		if ((rc = MQTTPublish(c, topic, &message)) != 0) {
++			mqtt_printf(MQTT_INFO, "Return code from MQTT publish is %d\n", rc);
++			MQTTSetStatus(c, MQTT_START);
++			c->ipstack->disconnect(c->ipstack);
+ 		}
+ 	}
+ 
+@@ -97,15 +113,16 @@ static void prvMQTTTask(void *pvParameters)
+ 	/* To avoid gcc warnings */
+ 	(void) pvParameters;
+ 
++	MQTTClient client;
+ 	Network network;
+ 	static unsigned char sendbuf[MQTT_SENDBUF_LEN], readbuf[MQTT_READBUF_LEN];
+ 	int rc = 0, mqtt_pub_count = 0;
+ 	MQTTPacket_connectData connectData = MQTTPacket_connectData_initializer;
+-	connectData.username.cstring = mqtt_config.username;
+-	connectData.password.cstring = mqtt_config.password;
+-	
+ 	connectData.MQTTVersion = 3;
+-	connectData.clientID.cstring = mqtt_config.clientID;
++	connectData.clientID.cstring = (char *)"FT1_018";
++	const char *address = "broker.emqx.io";
++	const char *sub_topic = "LASS/Test/Pm25Ameba/#";
++	const char *pub_topic = "LASS/Test/Pm25Ameba/FT1_018";
+ 
+ 	NetworkInit(&network);
+ 	MQTTClientInit(&client, &network, 30000, sendbuf, sizeof(sendbuf), readbuf, sizeof(readbuf));
+@@ -114,14 +131,6 @@ static void prvMQTTTask(void *pvParameters)
+ 		// Delay to check successful WiFi connection and obtain of an IP address
+ 		LwIP_Check_Connectivity();
+ 
+-		if (check_mqtt_config_complete() == 0) {
+-			mqtt_printf(MQTT_INFO, "MQTT configuration is incomplete. Please set mqtt parameters via ATCMD before continuing");
+-			rtos_time_delay_ms(1000);
+-			continue;
+-		} else {
+-			mqtt_config.configured = 1;
+-		}
+-
+ 		fd_set read_fds;
+ 		fd_set except_fds;
+ 		struct timeval timeout;
+@@ -141,12 +150,12 @@ static void prvMQTTTask(void *pvParameters)
+ 				MQTTSetStatus(&client, MQTT_START); //my_socket will be close and reopen in MQTTDataHandle if STATUS set to MQTT_START
+ 			} else if (rc == 0) { //select timeout
+ 				if (++mqtt_pub_count == 5) { //Send MQTT publish message every 5 seconds
+-					//MQTTPublishMessage(&client, (char *)pub_topic);
++					MQTTPublishMessage(&client, (char *)pub_topic);
+ 					mqtt_pub_count = 0;
+ 				}
+ 			}
+ 		}
+-		MQTTDataHandle(&client, &read_fds, &connectData, messageArrived, mqtt_config.address, mqtt_config.sub_topic);
++		MQTTDataHandle(&client, &read_fds, &connectData, messageArrived, (char *)address, (char *)sub_topic);
+ 	}
+ }
+ #endif
+@@ -155,115 +164,18 @@ void vStartMQTTTasks(uint16_t usTaskStackSize, uint32_t uxTaskPriority)
+ {
+ 	uint32_t x = 0L;
+ 	printf("\nExample: Mqtt \n");
++#if defined(MQTT_TASK)
+ 	rtos_task_create(NULL, "MQTTTask", prvMQTTTask, (void *)x, usTaskStackSize * 4, uxTaskPriority);
++#else
++	rtos_task_create(NULL, "MQTTEcho0", prvMQTTEchoTask, (void *)x, (usTaskStackSize + 128) * 4, uxTaskPriority);
++#endif
++
+ }
+ 
+ void example_mqtt(void)
+ {
+ 	vStartMQTTTasks(4096, 4);
+ }
+-
+-// =========================================================
+-// MQTT AT commands
+-// =========================================================
+-
+-#define MQTTX_ERR_STR "Invalid Arguments"
+-#define MQTTX_OK_STR "OK"
+-
+-static uint8_t check_mqtt_config_complete(void)
+-{
+-	if (strlen(mqtt_config.clientID) > 0 &&
+-		strlen(mqtt_config.username) > 0 &&
+-		strlen(mqtt_config.password) > 0 &&
+-		strlen(mqtt_config.address) > 0 &&
+-		strlen(mqtt_config.pub_topic) > 0 &&
+-		strlen(mqtt_config.sub_topic) > 0) {
+-		return 1;
+-	}
+-	return 0;
+-}
+-
+-static void at_mqttclient(void *arg)
+-{
+-	strncpy(mqtt_config.clientID, (char *)arg, sizeof(mqtt_config.clientID) - 1);
+-	mqtt_config.clientID[sizeof(mqtt_config.clientID) - 1] = '\0';
+-	mqtt_printf(MQTT_INFO, "Client ID set to: %s\n", mqtt_config.clientID);
+-}
+-
+-static void at_mqttuser(void *arg)
+-{
+-	strncpy(mqtt_config.username, (char *)arg, sizeof(mqtt_config.username) - 1);
+-	mqtt_config.username[sizeof(mqtt_config.username) - 1] = '\0';
+-	mqtt_printf(MQTT_INFO, "Username set to: %s\n", mqtt_config.username);
+-}
+-
+-static void at_mqttpass(void *arg)
+-{
+-	strncpy(mqtt_config.password, (char *)arg, sizeof(mqtt_config.password) - 1);
+-	mqtt_config.password[sizeof(mqtt_config.password) - 1] = '\0';
+-	mqtt_printf(MQTT_INFO, "Password set to: %s\n", mqtt_config.password);
+-}
+-
+-static void at_mqttaddr(void *arg)
+-{
+-	strncpy(mqtt_config.address, (char *)arg, sizeof(mqtt_config.address) - 1);
+-	mqtt_config.address[sizeof(mqtt_config.address) - 1] = '\0';
+-	mqtt_printf(MQTT_INFO, "Address set to: %s\n", mqtt_config.address);
+-}
+-
+-static void at_mqttport(void *arg)
+-{
+-	int port = atoi((char *)arg);
+-	if (port <= 0 || port > 65535) {
+-		mqtt_printf(MQTT_INFO, "Invalid port number: %d\n", port);
+-		return;
+-	}
+-	mqtt_config.port = (uint16_t)port;
+-	mqtt_printf(MQTT_INFO, "Port set to: %d\n", mqtt_config.port);
+-}
+-
+-static void at_mqttpubtopic(void *arg)
+-{
+-	strncpy(mqtt_config.pub_topic, (char *)arg, sizeof(mqtt_config.pub_topic) - 1);
+-	mqtt_config.pub_topic[sizeof(mqtt_config.pub_topic) - 1] = '\0';
+-	mqtt_printf(MQTT_INFO, "Publish topic set to: %s\n", mqtt_config.pub_topic);
+-}
+-
+-static void at_mqttsubtopic(void *arg)
+-{
+-	strncpy(mqtt_config.sub_topic, (char *)arg, sizeof(mqtt_config.sub_topic) - 1);
+-	mqtt_config.sub_topic[sizeof(mqtt_config.sub_topic) - 1] = '\0';
+-	mqtt_printf(MQTT_INFO, "Subscribe topic set to: %s\n", mqtt_config.sub_topic);
+-}
+-
+-static void at_mqttstatus(void *arg)
+-{
+-	(void)arg; // Unused parameter
+-	mqtt_printf(MQTT_INFO, "MQTT Status%d:\n");
+-	mqtt_printf(MQTT_INFO, "Client ID: %s\n", mqtt_config.clientID);
+-	mqtt_printf(MQTT_INFO, "Username: %s\n", mqtt_config.username);
+-	mqtt_printf(MQTT_INFO, "Password: %s\n", mqtt_config.password);
+-	mqtt_printf(MQTT_INFO, "Address: %s\n", mqtt_config.address);
+-	mqtt_printf(MQTT_INFO, "Port: %d\n", mqtt_config.port);
+-	mqtt_printf(MQTT_INFO, "Publish Topic: %s\n", mqtt_config.pub_topic);
+-	mqtt_printf(MQTT_INFO, "Subscribe Topic: %s\n", mqtt_config.sub_topic);	
+-}
+-
+-log_item_t at_exmqtt_items[ ] = {
+-	{"+MQTTCLIENT", at_mqttclient, {NULL, NULL}},
+-	{"+MQTTUSER", at_mqttuser, {NULL, NULL}},
+-	{"+MQTTPASS", at_mqttpass, {NULL, NULL}},
+-	{"+MQTTADDR", at_mqttaddr, {NULL, NULL}},
+-	{"+MQTTPORT", at_mqttport, {NULL, NULL}},
+-	{"+MQTTPUBTOPIC", at_mqttpubtopic, {NULL, NULL}},
+-	{"+MQTTSUBTOPIC", at_mqttsubtopic, {NULL, NULL}},
+-	{"+MQTTSTATUS", at_mqttstatus, {NULL, NULL}}
+-};
+-
+-void at_exmqtt_init(void)
+-{
+-	atcmd_service_add_table(at_exmqtt_items, sizeof(at_exmqtt_items) / sizeof(at_exmqtt_items[0]));
+-}
+ /*-----------------------------------------------------------*/
+ 
+ 
+diff --git a/component/example/network_protocol/mqtt/example_mqtt.h b/component/example/network_protocol/mqtt/example_mqtt.h
+index e5e978a7..5e4653b1 100644
+--- a/component/example/network_protocol/mqtt/example_mqtt.h
++++ b/component/example/network_protocol/mqtt/example_mqtt.h
+@@ -1,14 +1,6 @@
+ #ifndef EXAMPLE_MQTT_H
+ #define EXAMPLE_MQTT_H
+ 
+-#include "ameba_soc.h"
+-
+ void example_mqtt(void);
+ 
+-void wrap_mqtt_publish_message(char *buf, uint32_t len);
+-
+-void at_exmqtt_init(void);
+-
+-#define MQTT_BUFFER_TX_SIZE 1024
+-
+ #endif /* EXAMPLE_MQTT_H */
