@@ -6,12 +6,10 @@ A Model Context Protocol (MCP) server for controlling Ameba IoT development boar
 ## System Architecture
 ![Architecture diagram](images/ameba-mcp_scenario.png)
 
-### Example
-
-### Energy Management
+### Example: Energy Management
 ![Energy Example](images/energy.png)
 
-### Healthcare
+### Example: Healthcare
 ![Healthcare Example](images/healthcare.png)
 
 ## Features
