@@ -163,6 +163,7 @@ Adding new features
 [Link to WiFi Module](./api_docs/wifi.md)
 
 ### Snapshot Module (Pro2 Only)
+Please go to snapshot.md for more information about pro2 fw
 
 [Link to Snapshot Module](./api_docs/snapshot.md)
 
