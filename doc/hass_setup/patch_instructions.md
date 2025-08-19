@@ -53,7 +53,7 @@ MQTTSUB=<Sub Topic> - Set ATCMD Subscribe Topic: This is where the ATCMD will be
 MQTTSTATUS - Return configuration status
 ```
 
-User can also input the mqtt_config in component/example/mqtt/example_mqtt.c
+User can also set the mqtt_config in component/example/mqtt/example_mqtt.c, by setting the information in advanced, user don't need to use ATcmd to set mqtt information
 ```c
 static mqtt_config_t mqtt_config = {
 	.clientID = "",
