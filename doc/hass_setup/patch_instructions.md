@@ -29,4 +29,40 @@ CONFIG APPLICATION > [*] Enable ATCMD over MQTT
 
 ## Ameba Pro2
 
-TODO
+The FW code is in https://github.com/Ameba-AIoT/ameba-rtos-pro2
+
+```bash
+# Compile and make
+cmake .. -G "Unix Makefiles" -DCMAKE_TOOLCHAIN_FILE=../toolchain.cmake -DEXAMPLE=mqtt -DUSE_ATCMD_MQTT=ON
+cmake --build . --target flash -j4
+
+# Flash Image
+.\uartfwburn.exe -p COMX -f ..\project\realtek_amebapro2_v0_example\GCC-RELEASE\build\flash_ntz.bin -b 2000000 -n pro2 -U
+```
+
+AT Commands added:
+
+```
+MQTTCLIENT=<CLIENT_ID> - Set Client ID
+MQTTUSER=<Username> - Set Username to connect to broker
+MQTTPASS=<Password> - Set Password to connect to broker
+MQTTADDR=<Address> - Set Broker Address 
+MQTTPORT=<Port> - Set Broker Port, default 1883
+MQTTPUB=<Pub Topic> - Set ATCMD Publish Topic: This is where the output of ATCMD will be published to
+MQTTSUB=<Sub Topic> - Set ATCMD Subscribe Topic: This is where the ATCMD will be received from the sender, e.g ATW?
+MQTTSTATUS - Return configuration status
+```
+
+User can also input the mqtt_config in component/example/mqtt/example_mqtt.c
+```c
+static mqtt_config_t mqtt_config = {
+	.clientID = "",
+	.username = "",
+	.password = "",
+	.address = "",
+	.pub_topic = "",
+	.sub_topic = "",
+	.port = 1883,
+	.configured = 0
+};
+```

@@ -22,6 +22,26 @@ cmake --build . --target flash -j4
 .\uartfwburn.exe -p COMX -f ..\project\realtek_amebapro2_v0_example\GCC-RELEASE\build\flash_ntz.bin -b 2000000 -n pro2 -U
 ```
 
+### Image Extractor MCP
+Please refer to https://github.com/ifmelate/mcp-image-extractor
+
+Add image-extractor mcp server in claude_desktop_config.json
+
+```bash
+{
+  "mcpServers": {
+    "image-extractor": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-image-extractor"
+      ]
+    }
+   }
+}
+```
+
+
 ### Snapshot Module (Pro2 Only)
 
 Image capture and download functions.
