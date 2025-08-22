@@ -16,7 +16,12 @@ cmake --build . --target flash -j4
 .\uartfwburn.exe -p COMX -f ..\project\realtek_amebapro2_v0_example\GCC-RELEASE\build\flash_ntz.bin -b 2000000 -n pro2 -U
 ```
 ### Gmail MCP
-Please refer to https://github.com/GongRzhe/Gmail-MCP-Server and enter the gmail address you want to recieve messages from ameba-mcp-main/src/modules/healthcare_module.py
+Please refer to https://github.com/GongRzhe/Gmail-MCP-Server
+
+```bash
+# Please enter the gmail address you want to recieve messages into ameba-mcp-main/src/modules/healthcare_module.py
+"to": ["__________________"] # Enter gmail address here
+```
 
 ### Healthcare Module (Pro2 Only)
 
