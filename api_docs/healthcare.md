@@ -15,6 +15,21 @@ cmake --build . --target flash -j4
 # Flash Image
 .\uartfwburn.exe -p COMX -f ..\project\realtek_amebapro2_v0_example\GCC-RELEASE\build\flash_ntz.bin -b 2000000 -n pro2 -U
 ```
+
+### How to use Tof sensor
+
+Please refer to the link for the ToF sensor specifications and usage instructions.
+https://www.sparkfun.com/sparkfun-qwiic-tof-imager-vl53l5cx.html
+
+Pin connection:
+| Tof sensor | Pro2 |
+|----------|-------------|
+| GND | J18 |
+| 3V3 | J17 | 
+| SDA | GPIOE6 | 
+| SCL | GPIOE5 | 
+
+
 ### Gmail MCP
 Please refer to https://github.com/GongRzhe/Gmail-MCP-Server
 

@@ -175,3 +175,7 @@ Please go to snapshot.md for more information about pro2 fw
 
 [Link to HEMS Module](./api_docs/hems.md)
 
+### Healthcare Module (Pro2 Only)
+
+[Link to Healthcare Module](./api_docs/healthcare.md)
+
