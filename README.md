@@ -16,10 +16,10 @@ A Model Context Protocol (MCP) server for controlling Ameba IoT development boar
 
 ### Supported Devices
 
-| Device | Connection | WiFi | KVS Streaming | Snapshot | HEMS |
-|--------|------------|------|---------------|----------|------|
-| Ameba Pro2 | ✅ Serial/TCP | ✅ | ✅ | ✅ | ❌ |
-| Ameba D Plus| ✅ Serial/TCP | ✅ | ❌ | ❌ | ✅ |
+| Device | Connection | WiFi | KVS Streaming | Snapshot | HEMS | Healthcare |
+|--------|------------|------|---------------|----------|------|------------|
+| Ameba Pro2 | ✅ Serial/TCP | ✅ | ✅ | ✅ | ❌ | ✅ |
+| Ameba D Plus| ✅ Serial/TCP | ✅ | ❌ | ❌ | ✅ | ❌ |
 
 
 ### Core Functionality
@@ -30,6 +30,7 @@ A Model Context Protocol (MCP) server for controlling Ameba IoT development boar
 - **KVS Streaming (Pro2 only)**: AWS Kinesis Video Streams with object detection
 - **HEMS Module (D Plus Only)**: Home Energy Management System functions for solar inverters and grid management.
 - **Modular Architecture**: Load only the features supported by your device
+- **Healthcare Module (Pro2 only)**: Healthcare functions for elders who are at home.
 
 
 
@@ -102,7 +103,7 @@ Users can define product configurations and add modules specific to each product
 PRODUCT_CONFIGS = {
     "ameba-pro2": {
         "name": "Ameba Pro2",
-        "modules": ["connection", "wifi", "kvs", "snapshot"]
+        "modules": ["connection", "wifi", "kvs", "snapshot", "healthcare"]
     },
     "ameba-d": {
         "name": "Ameba D",
@@ -123,7 +124,8 @@ ameba-mcp/
 │     ├── wifi.md    
 │     ├── snapshot.md    
 │     ├── kvs.md    
-│     └── hems.md    
+│     └── hems.md 
+│     └── healthcare.md   
 ├── pyproject.toml        # UV package configuration
 ├── .gitignore            # Git ignore rules
 ├── src/
@@ -136,7 +138,8 @@ ameba-mcp/
 │            ├── hems_module.py      
 │            ├── kvs_module.py      
 │            ├── snapshot_module.py  
-│            └── wifi_module.py   
+│            └── wifi_module.py
+│            └── healthcare_module.py   
 │       ├── __init__.py
 └──     └── server.py    # Pack each module into Ameba product server
 
@@ -174,4 +177,8 @@ Please go to snapshot.md for more information about pro2 fw
 ### HEMS Module (D Plus Only)
 
 [Link to HEMS Module](./api_docs/hems.md)
+
+### Healthcare Module (Pro2 Only)
+
+[Link to Healthcare Module](./api_docs/healthcare.md)
 

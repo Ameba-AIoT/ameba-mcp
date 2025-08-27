@@ -5,7 +5,7 @@ Supports multiple Ameba product lines with selective feature registration
 
 import asyncio
 import json
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol, Callable
 from abc import ABC, abstractmethod
 import serial
 import serial.tools.list_ports
@@ -22,7 +22,7 @@ from .modules import *
 PRODUCT_CONFIGS = {
     "ameba-pro2": {
         "name": "Ameba Pro2",
-        "modules": ["connection", "wifi", "kvs", "snapshot"]
+        "modules": ["connection", "wifi", "kvs", "snapshot", "healthcare"]
     },
     "ameba-d": {
         "name": "Ameba D",
@@ -73,6 +73,8 @@ class ModularAmebaServer:
                 self.modules["snapshot"] = SnapshotModule(self.connection_manager, connection_module)
             elif module_name == "hems":
                 self.modules["hems"] = HEMSModule(self.connection_manager, connection_module)
+            elif module_name == "healthcare":
+                self.modules["healthcare"] = HealthcareModule(self.connection_manager, connection_module)
     
     def setup_handlers(self):
         @self.server.list_tools()
@@ -90,7 +92,8 @@ class ModularAmebaServer:
                     tool_names = [tool.name for tool in module.get_tools()]
                     if name in tool_names:
                         result = await module.handle_tool(name, arguments)
-                        return [{"type": "text", "text": json.dumps(result, indent=2)}]
+                        return result #改
+                        # return [{"type": "text", "text": json.dumps(result, indent=2)}]
                 
                 raise ValueError(f"Unknown tool: {name}")
                 
