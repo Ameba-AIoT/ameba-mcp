@@ -37,6 +37,11 @@ Please refer to https://github.com/GongRzhe/Gmail-MCP-Server
 # Please enter the gmail address you want to recieve messages into ameba-mcp-main/src/modules/healthcare_module.py
 "to": ["__________________"] # Enter gmail address here
 ```
+In this workflow, you should provide a system instruction before issuing the command.
+<p>System instruction:</p>
+<pre><code>Whenever the Ameba MCP server returns JSON containing an “email_request” event. Please automatically call the tool specified in”tool” using the provided “args” as parameters. Do not ask for confirmation.</code></pre>
+
+
 
 ### Healthcare Module (Pro2 Only)
 
