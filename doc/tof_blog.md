@@ -65,34 +65,33 @@ Healthcare scenarios
 ### Audio reminders with snapshot
 Check how many pills the pillbox contains. If the number of pills is different from the expected amount, return medicine_reminder, which plays an audio message reminding the user to take the medicine.
 
-![1_scenario](../images/tof/mcp1.png)
+![1_scenario](../images/tof/mcp1.png)  
 
 
 Here's a practical example:
 
-![eg1](../images/tof/1eg1.png)
-![eg2](../images/tof/1eg2.png)
+![eg1](../images/tof/eg1.png)  
 
 ### Tof sensor detection
 - Emergency Gmail messages:  
 Ask Claude to start the ToF sensor detection. If the ToF sensor detects a “fall” or “no movement,” a Gmail alert will be sent to the Gmail address specified in the healthcare module.
 
-![2_scenario](../images/tof/mcp2.png)
+![2_scenario](../images/tof/mcp2.png)  
 
 - Audio reminders with ToF sensor:  
 Ask Claude to start the ToF sensor detection. If the ToF sensor detects “sitting” or “close to the door,” the walk_reminder audio and the close_reminder audio will be played, respectively.
 
-![3_scenario](../images/tof/mcp3.png)
+![3_scenario](../images/tof/mcp3.png)  
 
 Here's a practical example:
 
-![eg1](../images/tof/3eg1.png)
-![eg2](../images/tof/3eg2.png)
-![eg3](../images/tof/3eg3.png)
+![eg1](../images/tof/3eg1.png)  
+![eg2](../images/tof/3eg2.png)  
+![eg3](../images/tof/3eg3.png)  
 
 Then you'll recieve a Gmail message:
 
-![eg4](../images/tof/3eg4.png)
+![eg4](../images/tof/3eg4.png)  
 
 Technical deep dive
 ---
@@ -106,7 +105,7 @@ Based on (cx, cy) and the associated distance values, different scenarios can be
 
 Algorithm
 
-![algorithm](../images/tof/algorithm.png)
+![algorithm](../images/tof/algorithm.png)  
 
 - Falling: The depth corresponding to the centroid increases sharply within one second.
 - Not moving: The hotspot centroid does not change over a period of time.
