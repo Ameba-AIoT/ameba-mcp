@@ -65,33 +65,33 @@ Healthcare scenarios
 ### Audio reminders with snapshot
 Check how many pills the pillbox contains. If the number of pills is different from the expected amount, return medicine_reminder, which plays an audio message reminding the user to take the medicine.
 
-![1_scenario](../images/tof/mcp1.png)  
+<img src="../images/tof/mcp1.png" alt="mcp1" width="1000"/>  
 
 
 Here's a practical example:
 
-![eg1](../images/tof/eg1.png)  
+<img src="../images/tof/eg1.png" alt="eg1" width="1000"/>  
 
 ### Tof sensor detection
 - Emergency Gmail messages:  
 Ask Claude to start the ToF sensor detection. If the ToF sensor detects a “fall” or “no movement,” a Gmail alert will be sent to the Gmail address specified in the healthcare module.
 
-![2_scenario](../images/tof/mcp2.png)  
+<img src="../images/tof/mcp3.png" alt="mcp3" width="1000"/>   
 
 - Audio reminders with ToF sensor:  
 Ask Claude to start the ToF sensor detection. If the ToF sensor detects “sitting” or “close to the door,” the walk_reminder audio and the close_reminder audio will be played, respectively.
 
-![3_scenario](../images/tof/mcp3.png)  
+<img src="../images/tof/mcp2.png" alt="mcp2" width="1000"/>     
 
 Here's a practical example:
 
-![eg1](../images/tof/3eg1.png)  
-![eg2](../images/tof/3eg2.png)  
-![eg3](../images/tof/3eg3.png)  
+<img src="../images/tof/3eg1.png" alt="eg1" width="1000"/>  
+<img src="../images/tof/3eg2.png" alt="eg2" width="1000"/>  
+<img src="../images/tof/3eg3.png" alt="eg3" width="1000"/>  
 
 Then you'll recieve a Gmail message:
 
-![eg4](../images/tof/3eg4.png)  
+<img src="../images/tof/3eg4.png" alt="eg4" width="1000"/>  
 
 Technical deep dive
 ---
@@ -105,7 +105,7 @@ Based on (cx, cy) and the associated distance values, different scenarios can be
 
 Algorithm
 
-![algorithm](../images/tof/algorithm.png)  
+<img src="../images/tof/algorithm.png" alt="algorithm" width="1000"/>  
 
 - Falling: The depth corresponding to the centroid increases sharply within one second.
 - Not moving: The hotspot centroid does not change over a period of time.
