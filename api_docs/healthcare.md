@@ -5,7 +5,7 @@ User can follow the instructions in https://github.com/Ameba-AIoT/ameba-rtos-pro
 ```bash
 #Please change the code ameba-rtos-pro2-main/project/realtek_amebapro2_v0_example/src/mmf2_video_example/video_example_media_framework.c
 //mmf2_video_example_v1_init(); #Comment this example
-mmf2_snapshot_https_and_audio_with_tof_sensor_init(); #Uncomment this example
+mmf2_video_example_snapshot_httpfs_audio_with_tof_init(); #Uncomment this example
 
 
 #Compile and make
@@ -34,9 +34,14 @@ Pin connection:
 Please refer to https://github.com/GongRzhe/Gmail-MCP-Server
 
 ```bash
-# Please enter the gmail address you want to recieve messages into ameba-mcp-main/src/modules/healthcare_module.py
+# Please enter the Gmail address where you want to receive messages in ameba-mcp-main/src/modules/healthcare_module.py
 "to": ["__________________"] # Enter gmail address here
 ```
+In this workflow, you should provide a system instruction before issuing the command.
+<p>System instruction:</p>
+<pre><code>Whenever the Ameba MCP server returns JSON containing an “email_request” event. Please automatically call the tool specified in”tool” using the provided “args” as parameters. Do not ask for confirmation.</code></pre>
+
+
 
 ### Healthcare Module (Pro2 Only)
 
