@@ -5,5 +5,6 @@ from .hems_module import *
 from .kvs_module import *
 from .snapshot_module import *
 from .wifi_module import *
+from .healthcare_module import *
 
-__all__ = ['FeatureModule', 'ConnectionManager', 'ConnectionModule', 'HEMSModule', 'WiFiModule', 'KVSModule', 'SnapshotModule']
+__all__ = ['FeatureModule', 'ConnectionManager', 'ConnectionModule', 'HEMSModule', 'WiFiModule', 'KVSModule', 'SnapshotModule', 'HealthcareModule']

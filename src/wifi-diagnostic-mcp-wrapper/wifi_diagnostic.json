@@ -1,0 +1,8 @@
+{
+  "port": 8082,
+  "host": "localhost",
+  "command": "uv",
+  "args": ["--directory", "/mnt/d/ray_huang/Desktop/training/mcp/audio_server_0910/examples/mcp_wrapper/wifi_diagnostic", "run", "wifi_diagnostic_server.py"],
+  "timeout": 30,
+  "max_body_size": 10485760
+}

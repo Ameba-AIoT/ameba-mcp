@@ -12,27 +12,6 @@ A Model Context Protocol (MCP) server for controlling Ameba IoT development boar
 ### Example: Healthcare
 ![Healthcare Example](images/healthcare.png)
 
-## Features
-
-### Supported Devices
-
-| Device | Connection | WiFi | KVS Streaming | Snapshot | HEMS | Healthcare |
-|--------|------------|------|---------------|----------|------|------------|
-| Ameba Pro2 | ✅ Serial/TCP | ✅ | ✅ | ✅ | ❌ | ✅ |
-| Ameba D Plus| ✅ Serial/TCP | ✅ | ❌ | ❌ | ✅ | ❌ |
-
-
-### Core Functionality
-
-- **Dual Connection Support**: Connect via Serial (USB) or TCP/IP (Telnet)
-- **WiFi Management**: Scan networks, connect, and check status
-- **Snapshot Capture (Pro2 only)**: Capture and download images via HTTP
-- **KVS Streaming (Pro2 only)**: AWS Kinesis Video Streams with object detection
-- **HEMS Module (D Plus Only)**: Home Energy Management System functions for solar inverters and grid management.
-- **Modular Architecture**: Load only the features supported by your device
-- **Healthcare Module (Pro2 only)**: Healthcare functions for elders who are at home.
-
-
 
 ## Prerequisites
 
@@ -62,123 +41,52 @@ uv pip install -e . (the dependencies is written in pyproject.toml)
 
 ```
 
-### 2. Configuration for Claude Desktop
-
-Add the following to your Claude Desktop configuration file:
-Windows: %APPDATA%\Claude\claude_desktop_config.json
-
-```json
-{
-  "mcpServers": {
-    "ameba-pro2": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "C:\\path\\to\\ameba-mcp",
-        "run",
-        "ameba-mcp",
-        "--product",
-        "ameba-pro2"
-      ]
-    },
-    "ameba-d": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "C:\\path\\to\\ameba-mcp",
-        "run",
-        "ameba-mcp",
-        "--product",
-        "ameba-d"
-      ]
-    }
-  }
-}
-
-```
-
-Users can define product configurations and add modules specific to each product.
-
-```python
-PRODUCT_CONFIGS = {
-    "ameba-pro2": {
-        "name": "Ameba Pro2",
-        "modules": ["connection", "wifi", "kvs", "snapshot", "healthcare"]
-    },
-    "ameba-d": {
-        "name": "Ameba D",
-        "modules": ["connection", "wifi", "hems"]
-    }
-}
-
-```
-
-
-### 3. Project Structure
+### 2. Project Structure
 
 ```bash
-ameba-mcp/
-├── README.md              
-├── api_docs/
-│     ├── connection.md
-│     ├── wifi.md    
-│     ├── snapshot.md    
-│     ├── kvs.md    
-│     └── hems.md 
-│     └── healthcare.md   
-├── pyproject.toml        # UV package configuration
-├── .gitignore            # Git ignore rules
-├── src/
-│   └── ameba_mcp/
-│       ├── modules/      # Define each module
-│            ├── __init__.py
-│            ├── connection_manager.py 
-│            ├── connection_module.py
-│            ├── feature_module.py    
-│            ├── hems_module.py      
-│            ├── kvs_module.py      
-│            ├── snapshot_module.py  
-│            └── wifi_module.py
-│            └── healthcare_module.py   
-│       ├── __init__.py
-└──     └── server.py    # Pack each module into Ameba product server
+ameba-mcp/                                    
+├── README.md                               
+├── LICENSE                                   
+├── .gitignore                               
+├── images/                                  
+│   └── architecture.png                    
+└── src/                                     # Source code directory
+    ├── ameba-mcp-server/                    # Ameba MCP Server
+    │   ├── pyproject.toml                   # Python project configuration
+    │   ├── uv.lock                          # Dependency lock file
+    │   ├── README.md                        # Server documentation
+    │   ├── .gitignore                      
+    │   └── api/                                 
+    │       ├── core.md                          
+    │       ├── wifi.md                          
+    │       ├── snapshot.md                      
+    │       ├── kvs.md                           
+    │       └── hems.md                          
+    │   ├── ameba_aiot/                      # Python package directory
+    │   │   ├── __init__.py                  # Package initialization
+    │   │   └── ameba_mcp_server/            # MCP Server implementation
+    │   │       ├── server.py                # MCP Server main program
+    │   │       ├── modules/                 # Feature modules
+    │   │       │   ├── __init__.py          
+    │   │       │   ├── connection_manager.py # Connection module
+    │   │       │   ├── connection_module.py 
+    │   │       │   ├── feature_module.py    # Base module Class
+    │   │       │   ├── wifi_module.py       # WiFi functionality module
+    │   │       │   ├── snapshot_module.py   # Snapshot functionality module
+    │   │       │   ├── kvs_module.py        # KVS streaming module
+    │   │       │   ├── hems_module.py       # HEMS functionality module
+    │   │       │   ├── healthcare_module.py # Healthcare functionality module
+    │   ├── .venv/                          # Virtual environment (git ignored)
+    │
+    ├── another-mcp-server/                  # Future additional MCP servers
+    │   ├── pyproject.toml
+    │   └── ...
 
 ```
 
-### 4. Development
+## Available MCP Servers
 
-Adding new features
-
-1. Create a new module class inheriting from FeatureModule
-2. Implement required methods: get_tools(), handle_tool(), module_name
-3. Add module to product configuration in PRODUCT_CONFIGS in server.py
-4. Update module loading in ModularAmebaServer._load_modules()
-
-
-## API Reference
-
-### Connection Module
-
-[Link to Connection Module](./api_docs/connection.md)
-
-### WiFi Module
-
-[Link to WiFi Module](./api_docs/wifi.md)
-
-### Snapshot Module (Pro2 Only)
-Please go to snapshot.md for more information about pro2 fw
-
-[Link to Snapshot Module](./api_docs/snapshot.md)
-
-### KVS Module (Pro2 Only)
-
-[Link to KVS Module](./api_docs/kvs.md)
-
-### HEMS Module (D Plus Only)
-
-[Link to HEMS Module](./api_docs/hems.md)
-
-### Healthcare Module (Pro2 Only)
-
-[Link to Healthcare Module](./api_docs/healthcare.md)
-
+| Server Name | Description |
+|-------------|-------------|
+| [Ameba MCP Server](src/ameba-mcp-server) |  A Model Context Protocol (MCP) server for controlling Ameba IoT development boards through serial or tcp. This server provides a unified interface for interacting with multiple Ameba product lines including Ameba Pro2 and Ameba D Plus.
+| [Wifi Diagnostic MCP Wrapper](src/wifi-diagnostic-mcp-wrapper) | A Model Context Protocol (MCP) server including MQTT protocol provide to MCP wrapper. MCP wrapper will wraps a STDIO-based MCP (Model Context Protocol, this example) server and exposes it as an HTTP endpoint by JSONRPC 2.0. Therefore, this MCP server is written in JSON RPC 2.0 format

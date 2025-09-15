@@ -1,0 +1,21 @@
+[project]
+name = "wifi-diagnostic-mcp-wrapper"
+version = "1.0.0"
+description = "WiFi Diagnostic MCP Server Template for Multi-Team Environment"
+authors = [
+    {name = "IoT Team", email = "iot-team@company.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "paho-mqtt>=1.6.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "flake8",
+]
