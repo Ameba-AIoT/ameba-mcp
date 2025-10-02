@@ -56,3 +56,21 @@ Example Prompts:
 - "Display the mesh topology of my network"
 - "Show me more information of the node with mac = 00:11:22:33:44:55"
 - "Show me more information of the node with index 1"
+
+### Testing use only (STDIO)
+Run with python3 ./server.py, then paste these JSONRPC in to trigger the specific endpoints
+
+- Run `rmesh_list_nodes`
+```
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rmesh_list_nodes","arguments":{}}}
+```
+
+- Run `rmesh_list_relations`
+```
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rmesh_list_relations","arguments":{}}}
+```
+
+- Run `rmesh_get_node_info`
+```
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rmesh_get_node_info","arguments":{"identifier": "1"}}}
+```
