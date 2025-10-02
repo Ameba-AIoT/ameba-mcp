@@ -1,0 +1,30 @@
+basic:
+  ap_mac_list:
+  #- 20:be:cd:18:27:28
+  - 78:8c:b5:7b:1e:6e
+  #  [UART,SOCKET]
+  node_mode: SOCKET
+  password: 12345678
+  #  [TCP,UDP]
+  remote_connection_protocol: UDP
+  remote_connection_timeout: 60
+  ssid: N/A
+  layout_on_demand: true
+  ui_redraw_interval: 200
+ping:
+  # in milliseconds
+  interval: 500
+  packet_size: 64
+  rtt_average_window_size: 10
+  # in seconds
+  timeout_sec: 4
+layout:
+  layout_on_demand: false
+  vertical_link_length: 6
+  horizontal_link_length: 13
+  layout_mode: horizontal
+  rnat_enable: false
+ota:
+  ota_retry_delay_s: 3
+  ota_retry_interval_s: 2
+  ota_retry_max_attempts: 5
