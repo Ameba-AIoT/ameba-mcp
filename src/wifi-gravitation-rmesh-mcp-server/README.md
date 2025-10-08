@@ -8,6 +8,16 @@ As R-Mesh is a fully automatic protocol, this server only provides read capabili
 
 ## Configuration
 
+Before usage, please modify `config.yaml` and place the MAC address of your AP under `ap_mac_list`. This will set up the root node of the Mesh graph
+
+Note: This will not affect the operation of the R-Mesh, it will only affect the visualization of the mesh
+
+```yaml
+basic:
+  ap_mac_list:
+  - 00:11:22:33:44:55
+```
+
 ### STDIO Transport mode
 
 Modify the following lines in server.py
@@ -24,6 +34,12 @@ Modify the following lines in server.py
 ```
 mcp.run(transport="streamable-http")
 #mcp.run(transport="stdio")
+```
+
+Start the server by running the following command:
+
+```
+python3 /path/to/wifi-gravitation-rmesh-mcp-server/server.py
 ```
 
 ### Claude Desktop Setup
@@ -45,6 +61,8 @@ Add to your `claude_desktop_config.json`:
 ```
 
 #### If using HTTP Transport
+
+Note: Please ensure that the server is started before starting Claude!
 
 ```json
 {
