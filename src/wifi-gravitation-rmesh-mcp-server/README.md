@@ -49,6 +49,41 @@ Get the detailed information of a specific R-MESH node by its node index or MAC 
 
 ## Usage Examples
 
+### Demonstration Firmware
+
+Demonstration firmware has been provided for chipsets that support R-Mesh
+- AmebaDplus
+- AmebaGreen2
+
+Please use the appropriate profile and follow the chipset's relevant Application Notes to flash the firmware for testing
+
+After that, simply connect the boards to a common AP using `AT+WLCONN` ATCMD.
+
+IMPORTANT: If attempting to use DPlus and Green2 chips interoperably with R-Mesh on 6 GHz band AP, please perform the following step. This step is not required if the AP is on 2.4G!
+
+1. Disconnect from the AP with `AT+WLDISCONN`
+2. Only on AmebaGreen2, use the following command `AT+WLDBG=wl_mode 4`
+3. Reconnect to the AP with `AT+WLCONN`
+
+To simulate a node switch, you may introduce attenuation to one of the nodes by e.g grabbing the antenna with your hand and releasing.
+
+After that, check the reconfigured topology by using any of the listed prompts
+
+On each of the firmware, HTTPD web server is enabled. You may use this to test the connectivity from a PC connected to the same AP, where the target node is behind 1 or more R-Mesh nodes.
+
+#### Provided Debug Commands
+- AT+WLDBG=wtn nodename <name>
+Set a user-defined name for this node. Currently for demonstration purposes only and not part of the RTK R-Mesh spec!
+
+- AT+WLDBG=wtn get_nodename
+Display the node name, if any
+
+- AT+WLDBG=wtn fix_father <0/1> <00:11:22:33:44:55>
+Force this node to connect to a fixed parent R-Mesh node. Set the first argument to '0' to disable this feature
+
+- AT+WLDBG=wtn get_fix_father
+Display the forced father node's mac address, if set. Will not display if fix_father is set to '0'
+
 ### With Claude Desktop
 Example Prompts:
 - "List all nodes in my mesh network"
