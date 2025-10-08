@@ -244,7 +244,8 @@ class WTNServer:
         udp_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         udp_server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 1024)  # Buffer设置为1MB
         udp_server.bind((self.local_ip, self.listening_port))
-        logging.info(f"UDP server listening on {self.local_ip}:{self.listening_port}")
+        #logging.info(f"UDP server listening on {self.local_ip}:{self.listening_port}")
+        print(f"UDP server listening on {self.local_ip}:{self.listening_port}")
 
         with ThreadPoolExecutor(max_workers=20) as executor:
             try:

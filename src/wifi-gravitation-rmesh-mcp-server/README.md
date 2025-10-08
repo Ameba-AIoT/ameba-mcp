@@ -2,14 +2,34 @@
 
 This is a Work-in-Progress!
 
-This is a stdio MCP server that visualizes the mesh configuration of R-Mesh devices currently running on the network
+This is a MCP server that visualizes the mesh configuration of R-Mesh devices currently running on the network
 
 As R-Mesh is a fully automatic protocol, this server only provides read capabilities
 
 ## Configuration
 
+### STDIO Transport mode
+
+Modify the following lines in server.py
+
+```
+#mcp.run(transport="streamable-http")
+mcp.run(transport="stdio")
+```
+
+### HTTP Transport mode
+
+Modify the following lines in server.py
+
+```
+mcp.run(transport="streamable-http")
+#mcp.run(transport="stdio")
+```
+
 ### Claude Desktop Setup
 Add to your `claude_desktop_config.json`:
+
+#### If using STDIO Transport
 
 ```json
 {
@@ -24,8 +44,21 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-### HTTP Transport
-WIP!
+#### If using HTTP Transport
+
+```json
+{
+  "mcpServers": {
+    "gravitation-rmesh": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "http://localhost:8000/mcp"
+      ]
+    },
+  }
+}
+```
 
 ## Available Tools
 
@@ -72,17 +105,21 @@ After that, check the reconfigured topology by using any of the listed prompts
 On each of the firmware, HTTPD web server is enabled. You may use this to test the connectivity from a PC connected to the same AP, where the target node is behind 1 or more R-Mesh nodes.
 
 #### Provided Debug Commands
-- AT+WLDBG=wtn nodename <name>
+- `AT+WLDBG=wtn nodename <name>`
+
 Set a user-defined name for this node. Currently for demonstration purposes only and not part of the RTK R-Mesh spec!
 
-- AT+WLDBG=wtn get_nodename
+- `AT+WLDBG=wtn get_nodename`
+
 Display the node name, if any
 
-- AT+WLDBG=wtn fix_father <0/1> <00:11:22:33:44:55>
+- `AT+WLDBG=wtn fix_father <0/1> <00:11:22:33:44:55>`
+
 Force this node to connect to a fixed parent R-Mesh node. Set the first argument to '0' to disable this feature
 
-- AT+WLDBG=wtn get_fix_father
-Display the forced father node's mac address, if set. Will not display if fix_father is set to '0'
+- `AT+WLDBG=wtn get_fix_father`
+
+Display the forced father node's mac address, if set. Will not display if `fix_father` is set to '0'
 
 ### With Claude Desktop
 Example Prompts:
@@ -92,7 +129,12 @@ Example Prompts:
 - "Show me more information of the node with mac = 00:11:22:33:44:55"
 - "Show me more information of the node with index 1"
 
-### Testing use only (STDIO)
+### Testing use - HTTP Transport
+This MCP Server supports the use of Postman to debug over Streamable-HTTP.
+
+Simply connect Postman to this server by creating a new MCP workspace and enter the URL in: `http://localhost:8000/mcp`
+
+### Testing use - STDIO
 Run with python3 ./server.py, then paste these JSONRPC in to trigger the specific endpoints
 
 - Run `rmesh_list_nodes`

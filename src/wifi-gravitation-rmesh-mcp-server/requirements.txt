@@ -1,1 +1,2 @@
 ping3
+fastmcp

@@ -25,19 +25,20 @@ def resource_path(relative_path):
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = Path(sys._MEIPASS)
     except Exception:
-        base_path = Path('.').resolve()
+        base_path = Path(__file__).resolve().parent
 
     return base_path / relative_path
 
 
 def ensure_user_config():
     """ Ensure the user has a copy of the config file they can modify in the current directory """
-    # user_config_path = os.path.join(os.getcwd(), 'config.yaml')
+    script_path = Path(__file__).resolve().parent
+    user_config_path = os.path.join(script_path, 'config.yaml')
     # if not os.path.exists(user_config_path):
     #     # if user config does not exist, copy the default config in bundle to the current directory
     #     default_config_path = resource_path('config.yaml')
     #     shutil.copy(default_config_path, user_config_path)
-    # return user_config_path
+    return user_config_path
     return ""
 
 def load_config():

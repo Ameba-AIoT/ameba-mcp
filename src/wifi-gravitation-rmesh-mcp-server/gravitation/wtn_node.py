@@ -17,13 +17,8 @@ from .wtn_ping import PingMonitor
 
 
 class Node:
-    def __init__(self, id, x, y, ui, enable=wtn_config_mcp.enable_all_mode, mac=None):
+    def __init__(self, id, enable=wtn_config_mcp.enable_all_mode, mac=None):
         self.id = id
-        self.x = x
-        self.y = y
-        self.dx = 0
-        self.dy = 0
-        self.change_direction_interval_counter = 0
         self.com = "?"
         # from wtn_dut import default_mac
         self.mac = mac or default_mac
@@ -43,7 +38,6 @@ class Node:
         self.ip = default_ip
         self.children = []
         self.ping_monitor: Optional[PingMonitor] = None
-        self.ui = None
         self.ping_rtt_history = []
         # store (time, package_size) tuple
         self.log_file = None
@@ -113,34 +107,6 @@ class Node:
         if self.ping_monitor and not self.ping_monitor.stop_event.is_set():
             return
 
-    def refreshUI(self, fresh_even_pinging=False, embedded=True):
-        from gravitation.wtn_control_mcp import default_ip
-        if fresh_even_pinging or not self.ping_monitor or self.ping_monitor.stop_event.is_set():
-            if embedded:
-                result = f"{self.get_basic_info_text()}{f'\n{self.ip}' if self.ip != default_ip and wtn_config_mcp.Node_Mode == ConnectionType.UART else ''}{self.get_suffix()}"
-            else:
-                result = f"{self.mac.split(":")[-1]}"
-            if self.ui:
-                self.ui.tk_canvas_node_grid.after(0, lambda: self.ui.tk_canvas_node_grid.itemconfig(self.node_text,
-                                                                                                    text=result))
-
-    def get_ip_and_show(self):
-        from gravitation.wtn_control_mcp import default_ip
-        retry_count = 0
-
-        # fetch ip address with AT Command
-        while self.ip == default_ip and retry_count < 3:
-            self.ip = self.device.get_ip() or default_ip
-            retry_count += 1
-            time.sleep(0.5)
-
-        if self.ip != default_ip:
-            ip_result = f"{self.get_basic_info_text()}{f'\n{self.ip}' if self.ip != default_ip and wtn_config_mcp.Node_Mode == ConnectionType.UART else ''}{self.get_suffix()}"
-            if self.ui:
-                # print(f"update UI with: {ping_result}")
-                self.ui.tk_canvas_node_grid.after(0, lambda: self.ui.tk_canvas_node_grid.itemconfig(self.node_text,
-                                                                                                    text=ip_result))
-
     def add_ping_monitor(self):
         from gravitation.wtn_control_mcp import default_ip
 
@@ -195,10 +161,6 @@ class Node:
 
     def set_com(self, com):
         self.com = com
-
-    def update_position(self, x, y):
-        self.x = x
-        self.y = y
 
     def add_item_to_rssi_table(self, rssi_map_item):
         from gravitation.wtn_control_mcp import default_mac

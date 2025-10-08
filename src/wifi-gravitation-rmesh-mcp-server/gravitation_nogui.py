@@ -1,3 +1,4 @@
+from asyncio import CancelledError
 from gravitation.utils import *
 from gravitation.wtn_server import WTNServer
 from gravitation.wtn_node import Node
@@ -23,7 +24,7 @@ class GravitationServer:
         self.thread_status = True
 
         # set node0 as the AP mac. we assume that there is only 1 AP center
-        self.nodes[0] = Node(0, 0, 0, None, mac=ap_mac_list[0])
+        self.nodes[0] = Node(0, mac=ap_mac_list[0])
         self.nodes[0].online = True
         self.nodes[0].bssid = ap_mac_list[0]
         self.nodes[0].mac = ap_mac_list[0]
@@ -35,18 +36,14 @@ class GravitationServer:
         server.set_node_disconnected_callback(self.on_node_disconnected)
         server.set_node_report_callback(self.on_node_report)
 
-        # try:
-        #     print("Starting WTN server...")
-        #     server.start(REMOTE_CONNECTION_PROTOCOL)
-        # except KeyboardInterrupt:
-        #     self.thread_status = False
-        #     print("WTN server interrupted.")
-        # finally:
-        #     print("Stopping WTN server...")
-        #     # server.stop()
-        #     print("WTN server stopped.")
+        try:
+            print("Starting WTN server...")
+            server.start(REMOTE_CONNECTION_PROTOCOL)
+        except (KeyboardInterrupt, CancelledError):
+            self.thread_status = False
+            print("WTN server interrupted.")
+            raise KeyboardInterrupt
         #server.start(REMOTE_CONNECTION_PROTOCOL)
-        server.start(REMOTE_CONNECTION_PROTOCOL)
         
     def configure_logging(self):
         from gravitation.wtn_config_mcp import logging_enabled
@@ -213,7 +210,7 @@ class GravitationServer:
                 break
 
         #self.nodes[node_id] = Node(node_id, x, y, self.ui, mac=mac)
-        self.nodes[node_id] = Node(node_id, 0, 0, None, mac=mac)
+        self.nodes[node_id] = Node(node_id, mac=mac)
         self.nodes[node_id].ip = ip
         self.nodes[node_id].rnat_flag = rnat_flag
         print(f"add remote node {node_id} ({mac})", file=sys.stderr)
@@ -264,10 +261,8 @@ class GravitationServer:
                 # the father was not found, or the bssid is not in the ap list, clear relations
                 if not father_node or (bssid_check_required and bssid_not_in_ap_list):
                     if node.relation_line is not None:
-                        #self.ui.tk_canvas_node_grid.delete(node.relation_line)
                         node.relation_line = None
                     if node.relation_line_mark:
-                       # self.ui.tk_canvas_node_grid.delete(node.relation_line_mark)
                         node.relation_line_mark = None
 
                     continue
