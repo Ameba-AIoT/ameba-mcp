@@ -16,6 +16,10 @@ def rmesh_list_nodes() -> List[Any]:
     """List all stations participating in this R-MESH. This tool does not show the relationships between nodes"""
     return [
         {
+            "node_index": node.id,
+            "node_ip": node.ip,
+            "node_sta_type": node.node_sta_type,
+            "node_mac": node.mac,
             "node_name": node.node_name,
             "last_online": node.last_report_timestamp
         }
@@ -60,10 +64,15 @@ def rmesh_list_relations() -> List[Dict[str, Any]]:
         
         relations.append({
             "node_index": node.id,
+            "node_name": node.node_name,
             "node_mac": node.mac,
-            "parent": node.father_node.node_name if node.father_node else None,
+            "parent": node.father_node.mac if node.father_node else None,
             "rssi_to_parent": parent_rssi,
-            "children": [child.node_name for child in node.children],
+            "children": [{
+                "node_index": child.id,
+                "node_name": child.node_name,
+                "node_mac": child.mac
+            } for child in node.children],
         })
     return relations
 

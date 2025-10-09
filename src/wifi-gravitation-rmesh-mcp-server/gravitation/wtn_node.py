@@ -57,6 +57,7 @@ class Node:
         self.build = ""
         self.rnat_flag: bool | None = None
         self.node_name = ""
+        self.node_sta_type = ""
 
     def __del__(self):
         if self.ping_monitor:

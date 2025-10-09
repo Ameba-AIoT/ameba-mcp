@@ -19,6 +19,13 @@ def get_interfaces():
                 break
     return interfaces
 
+def get_interface_ip(iface_name):
+    for iface, addrs in psutil.net_if_addrs().items():
+        if iface == iface_name:
+            for addr in addrs:
+                if addr.family == socket.AF_INET: # we only care about ipv4 address
+                    return addr.address
+
 def resource_path(relative_path):
     """ Get absolute path to resource, works for both dev env and for PyInstaller packed env """
     try:

@@ -18,23 +18,26 @@ class GravitationServer:
     node_activities_log_file = None
     thread_status = None
 
-    def __init__(self, chosen_iface: str):
+    def __init__(self, chosen_iface):
         # start monitoring threads
         threading.Thread(target=self.refresh_relation_thread).start()
         self.thread_status = True
-
-        # set node0 as the AP mac. we assume that there is only 1 AP center
-        self.nodes[0] = Node(0, mac=ap_mac_list[0])
-        self.nodes[0].online = True
-        self.nodes[0].bssid = ap_mac_list[0]
-        self.nodes[0].mac = ap_mac_list[0]
-        self.nodes[0].node_name = f"AP-{self.nodes[0].mac}"
 
         # start wifi tunnel server
         server = WTNServer(report_timeout=REMOTE_NODE_TIMEOUT, ifname=chosen_iface)
         server.set_node_connected_callback(self.on_node_connected)
         server.set_node_disconnected_callback(self.on_node_disconnected)
         server.set_node_report_callback(self.on_node_report)
+
+        # set node0 as the AP mac. we assume that there is only 1 AP center
+        self.nodes[0] = Node(0, mac=ap_mac_list[0])
+        self.nodes[0].online = True
+        self.nodes[0].bssid = ap_mac_list[0]
+        self.nodes[0].mac = ap_mac_list[0]
+        self.nodes[0].node_sta_type = "AP"
+        self.nodes[0].node_name = server.get_ssid() or "AP"
+        self.nodes[0].ip = server.get_local_ip()
+        #self.nodes[0].node_name = f"AP-{self.nodes[0].mac}"
 
         try:
             print("Starting WTN server...")
@@ -117,33 +120,43 @@ class GravitationServer:
                         data_update(name, match.group(1).strip())
 
         def update_node_data(name, value, node):
-            # update father_mac handler
-            if name == "father_mac" and value != node.father_mac and value != default_mac:
-                #print(f"{node} -- {node.father_mac}")
-                #logging.info(f"node {node.mac.split(":")[-1]} 's father changed from {node.father_mac.split(":")[-1]} to {value.split(":")[-1]}")
-                print(f"node {node.mac.split(":")[-1]} 's father changed from {node.father_mac.split(":")[-1]} to {value.split(":")[-1]}", file=sys.stderr)
-                #node.should_relocate = True
-                node.father_mac = value
-
-                mac_to_node = {n.mac: n for n in self.nodes.values()}
-                father_node = mac_to_node.get(node.father_mac)
-                node.father_node = father_node
-
-                # related_nodes: List[Node] = list(filter(lambda n: n.father_mac in [value, node.father_mac], self.nodes.values()))
-                # #print(related_nodes)
-                # for related_node in related_nodes:
-                #     related_node.should_relocate = True
-
-            # update bssid handler
-            if name == "bssid":
-                node.bssid = value
-                if value == node.mac:
-                    node.node_name = "AP"
-                else:
-                    if node.bssid == node.father_mac:
-                        node.node_name = "ROOT-" + node.mac
+            match name:
+                # update bssid handler
+                case "bssid":
+                    node.bssid = value
+                    if value == node.mac:
+                        node.node_sta_type = "AP"
                     else:
-                        node.node_name = "STA-" + node.mac
+                        if node.bssid == node.father_mac:
+                            node.node_sta_type = "ROOT"
+                        else:
+                            node.node_sta_type = "STA"
+                
+                # update node_name handler - user defined field
+                case "node_name":
+                    node.node_name = value
+                
+                # update father_mac handler
+                case "father_mac":
+                    if value != node.father_mac and value != default_mac:
+                        #print(f"{node} -- {node.father_mac}")
+                        #logging.info(f"node {node.mac.split(":")[-1]} 's father changed from {node.father_mac.split(":")[-1]} to {value.split(":")[-1]}")
+                        print(f"node {node.mac.split(":")[-1]} 's father changed from {node.father_mac.split(":")[-1]} to {value.split(":")[-1]}", file=sys.stderr)
+                        #node.should_relocate = True
+                        node.father_mac = value
+
+                        mac_to_node = {n.mac: n for n in self.nodes.values()}
+                        father_node = mac_to_node.get(node.father_mac)
+                        node.father_node = father_node
+
+                        # related_nodes: List[Node] = list(filter(lambda n: n.father_mac in [value, node.father_mac], self.nodes.values()))
+                        # #print(related_nodes)
+                        # for related_node in related_nodes:
+                        #     related_node.should_relocate = True
+                
+                # update self ip handler
+                case "ip":
+                    node.ip = value
         
         def node_switch_record(node_activities_log_file, packet: PacketModel, mac, node):
             current_time = datetime.now().strftime("%H:%M:%S:%f")[:-3]

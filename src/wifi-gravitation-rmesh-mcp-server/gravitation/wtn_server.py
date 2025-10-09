@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 import psutil
+import subprocess
 
 from .packet_model import PacketModel
 from .enums import ConnectionProtocol
@@ -82,6 +83,43 @@ class WTNServer:
                     logging.info(f"Detected interface with 192 IP: {iface}")
                     return iface
         raise RuntimeError("No suitable network interface with 192 IP found")
+    
+    def get_ssid(self):
+        system = platform.system()
+        
+        try:
+            if system == 'Windows':
+                # Windows: netsh command
+                result = subprocess.check_output(
+                    ['netsh', 'wlan', 'show', 'interfaces'],
+                    encoding='utf-8'
+                )
+                for line in result.split('\n'):
+                    if 'SSID' in line and 'BSSID' not in line:
+                        return line.split(':')[1].strip()
+            
+            elif system == 'Darwin':  # macOS
+                result = subprocess.check_output(
+                    ['/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport', '-I'],
+                    encoding='utf-8'
+                )
+                for line in result.split('\n'):
+                    if ' SSID:' in line:
+                        return line.split(':')[1].strip()
+            
+            elif system == 'Linux':
+                result = subprocess.check_output(
+                    ['iwgetid', '-r'],
+                    encoding='utf-8'
+                )
+                return result.strip()
+                
+        except subprocess.CalledProcessError:
+            return None
+        except FileNotFoundError:
+            return None
+        
+        return None
 
     def get_local_ip(self):
         def get_windows_ip():
