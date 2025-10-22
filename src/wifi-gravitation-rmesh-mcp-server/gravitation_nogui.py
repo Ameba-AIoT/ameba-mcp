@@ -40,11 +40,11 @@ class GravitationServer:
         #self.nodes[0].node_name = f"AP-{self.nodes[0].mac}"
 
         try:
-            print("Starting WTN server...")
+            print("Starting WTN server...", file=sys.stderr)
             server.start(REMOTE_CONNECTION_PROTOCOL)
         except (KeyboardInterrupt, CancelledError):
             self.thread_status = False
-            print("WTN server interrupted.")
+            print("WTN server interrupted.", file=sys.stderr)
             raise KeyboardInterrupt
         #server.start(REMOTE_CONNECTION_PROTOCOL)
         
@@ -141,7 +141,7 @@ class GravitationServer:
                     if value != node.father_mac and value != default_mac:
                         #print(f"{node} -- {node.father_mac}")
                         #logging.info(f"node {node.mac.split(":")[-1]} 's father changed from {node.father_mac.split(":")[-1]} to {value.split(":")[-1]}")
-                        print(f"node {node.mac.split(":")[-1]} 's father changed from {node.father_mac.split(":")[-1]} to {value.split(":")[-1]}", file=sys.stderr)
+                        print(f"node {node.mac.split(':')[-1]} 's father changed from {node.father_mac.split(':')[-1]} to {value.split(':')[-1]}", file=sys.stderr)
                         #node.should_relocate = True
                         node.father_mac = value
 
@@ -178,8 +178,8 @@ class GravitationServer:
                 if node_activities_log_file:
                     with open(node_activities_log_file, 'a') as file:
                         file.write(f"{mac}: switch\t{current_time}\t"
-                                f"{old_father.split(":")[-1]}/{old_candidate.split(":")[-1]}[{old_father_score}/{old_candidate_score}]"
-                                f" to {new_father.split(":")[-1]}/{new_candidate.split(":")[-1]}[{new_father_score}/{new_candidate_score}]\n")
+                                f"{old_father.split(':')[-1]}/{old_candidate.split(':')[-1]}[{old_father_score}/{old_candidate_score}]"
+                                f" to {new_father.split(':')[-1]}/{new_candidate.split(':')[-1]}[{new_father_score}/{new_candidate_score}]\n")
 
         mac = report.get("mac")
         node = self.find_node_by_mac(mac)

@@ -15,6 +15,8 @@ from .wtn_control_mcp import default_ip, default_mac
 from .wtn_log_filter import should_drop
 from .wtn_ping import PingMonitor
 
+NEWLINE = '\n'
+
 
 class Node:
     def __init__(self, id, enable=wtn_config_mcp.enable_all_mode, mac=None):
@@ -188,7 +190,7 @@ class Node:
 
     def get_display_text(self):
         if self.mac in wtn_config_mcp.ap_mac_list:
-            return f"AP({self.mac.split(":")[-1]})"
+            return f"AP({self.mac.split(':')[-1]})"
         return self.mac.split(":")[-1].upper()
 
     def get_basic_info_text(self):
@@ -199,17 +201,17 @@ class Node:
                         f" ({self.last_report_timestamp.minute}:{self.last_report_timestamp.second})" if self.last_report_timestamp else "") +
                         (
                             f"-{self.reconnect_counter}" if self.reconnect_counter != 0 else "") +
-                            f"{("\n" + self.node_name) if self.node_name else ""}"
-                            f"{("\n" + self.children_text) if self.children_text else ""}"
+                            f"{(NEWLINE + self.node_name) if self.node_name else ''}"
+                            f"{(NEWLINE + self.children_text) if self.children_text else ''}"
                         )
         else:
             return (f"{self.com.replace('COM', '')} / {self.mac.split(':')[-1].upper()}"
-                    f"{("\n" + self.children_text) if self.children_text else ""}"
-                    f"{("\nscore: " + self.score) if self.score else ""}")
+                    f"{(NEWLINE + self.children_text) if self.children_text else ''}"
+                    f"{(NEWLINE + 'score: ' + self.score) if self.score else ''}")
 
     def get_suffix(self):
-        return (f"{f'\naid:{self.aid}' if self.aid else ''}"
-                f"{f'\n{self.debug_text}' if self.debug_text else ''}"
+        return (f"{f'{NEWLINE}aid:{self.aid}' if self.aid else ''}"
+                f"{f'{NEWLINE}{self.debug_text}' if self.debug_text else ''}"
                 )
 
     # def __str__(self):

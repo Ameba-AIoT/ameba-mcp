@@ -1,7 +1,8 @@
 basic:
   ap_mac_list:
   #- 20:be:cd:18:27:28
-  - 44:a5:6e:7c:75:7e
+  #- 44:a5:6e:7c:75:7e
+  - 44:a5:6e:7c:75:80
   #  [UART,SOCKET]
   node_mode: SOCKET
   password: 12345678

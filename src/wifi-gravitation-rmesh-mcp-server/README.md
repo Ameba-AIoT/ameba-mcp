@@ -8,6 +8,8 @@ As R-Mesh is a fully automatic protocol, this server only provides read capabili
 
 ## Configuration
 
+Install the prerequisite libraries by running `python3 -m pip install -r requirements.txt`
+
 Before usage, please modify `config.yaml` and place the MAC address of your AP under `ap_mac_list`. This will set up the root node of the Mesh graph
 
 Note: This will not affect the operation of the R-Mesh, it will only affect the visualization of the mesh
@@ -18,11 +20,21 @@ basic:
   - 00:11:22:33:44:55
 ```
 
+### RTK Host Transport mode
+
+Modify the following lines in server.py
+
+```py
+# Pick your MCP server implementation by uncommenting the desired import line
+#from fastmcp import FastMCP as MCPServerProvider
+from rtktool_server import MCPServer as MCPServerProvider
+```
+
 ### STDIO Transport mode
 
 Modify the following lines in server.py
 
-```
+```py
 #mcp.run(transport="streamable-http")
 mcp.run(transport="stdio")
 ```
@@ -31,7 +43,7 @@ mcp.run(transport="stdio")
 
 Modify the following lines in server.py
 
-```
+```py
 mcp.run(transport="streamable-http")
 #mcp.run(transport="stdio")
 ```
