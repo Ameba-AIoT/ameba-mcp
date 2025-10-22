@@ -34,7 +34,7 @@ class WiFiDiagnosticServer:
         self.tools = {
             "get_device_status": self.iot_tools.get_device_status,
             "get_device_rssi": self.iot_tools.get_device_rssi,
-            "get_wifi_log": self.iot_tools.get_wifi_log,
+            "get_wifi_event_log": self.iot_tools.get_wifi_event_log,
             "get_wifi_connection_status": self.iot_tools.get_wifi_connection_status,
             "clear_wifi_connection_status": self.iot_tools.clear_wifi_connection_status,
             "configure_mqtt": self.iot_tools.configure_mqtt,
