@@ -464,8 +464,8 @@ class IoTWiFiTools:
             # Generate diagnostics
             diagnostics = self._generate_diagnostics(attempts, parsed_log)
 
-            # Calculate last_5_attempts pattern
-            last_5_pattern = self._get_attempts_pattern(attempts[-5:])
+            # Calculate attempts pattern
+            last_pattern = self._get_attempts_pattern(attempts)
             
 
             # Build summary
@@ -476,7 +476,7 @@ class IoTWiFiTools:
                 "failed": fail_count,
                 "errors": error_count,
                 "disconnections": disconnect_count,
-                "last_5_attempts": last_5_pattern
+                "last_attempts": last_pattern
             }
 
             # Build recent attempts
