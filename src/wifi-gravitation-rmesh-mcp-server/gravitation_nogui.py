@@ -17,10 +17,13 @@ class GravitationServer:
     nodes: Dict[int, Node] = {}
     node_activities_log_file = None
     thread_status = None
+    refresh_thread = None
 
     def __init__(self, chosen_iface):
         # start monitoring threads
-        threading.Thread(target=self.refresh_relation_thread).start()
+        self.refresh_thread = threading.Thread(target=self.refresh_relation_thread)
+        self.refresh_thread.daemon = True
+        self.refresh_thread.start()
         self.thread_status = True
 
         # start wifi tunnel server
