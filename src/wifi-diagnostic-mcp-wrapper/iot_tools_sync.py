@@ -95,7 +95,29 @@ class IoTWiFiTools:
             },
             {
                 "name": "get_wifi_event_log",
-                "description": "Get WiFi connection log from IoT device using WIFILOG command",
+                "description": "Get WiFi event log from IoT device using WIFIEVENTLOG command",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {
+                            "type": "string",
+                            "description": "IoT device identifier"
+                        },
+                        "timeout": {
+                            "type": "integer",
+                            "description": "Response timeout in seconds",
+                            "default": 30
+                        }
+                    },
+                    "required": ["device_id"]
+                }
+            },
+            {
+                "name": "clear_wifi_event_log",
+                "description": """Clear the WiFi event log on the IoT device.
+                WARNING: This is a destructive operation that will permanently delete all WiFi status history.
+                Use this to reset the log or free up memory on the device.
+                The log will start recording again from scratch after clearing.""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -239,7 +261,7 @@ class IoTWiFiTools:
             return {"error": str(e)}
     
     def get_wifi_event_log(self, device_id: str, timeout: int = 30) -> Dict[str, Any]:
-        """Get WiFi connection log from IoT device using WIFILOG command"""
+        """Get WiFi connection log from IoT device using WIFIEVENTLOG command"""
         try:
             if not device_id:
                 return {"error": "Missing device_id parameter"}
@@ -253,7 +275,29 @@ class IoTWiFiTools:
             
             return {
                 "status": "success",
-                "message": f"WIFILOG Response from {device_id}",
+                "message": f"WIFIEVENTLOG Response from {device_id}",
+                "device_id": device_id,
+                "raw_response": raw_response,
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+    def clear_wifi_event_log(self, device_id: str, timeout: int = 30) -> Dict[str, Any]:
+        """Clear WiFi connection status log on the device"""
+        try:
+            if not device_id:
+                return {"error": "Missing device_id parameter"}
+            
+            if not self.mqtt_handler.is_connected():
+                return {"error": "MQTT not connected. Use configure_mqtt first."}
+            
+            response = self.mqtt_handler.send_command("WIFIEVENTLOG=CLEAR", device_id, timeout)
+            raw_response = response.get("data", {}).get("response", "")
+            
+            return {
+                "status": "success",
+                "message": f"WiFi event log cleared on {device_id}",
                 "device_id": device_id,
                 "raw_response": raw_response,
                 "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -332,7 +376,7 @@ class IoTWiFiTools:
                 "recommendation": "No connection attempts recorded"
             }
         
-        recent_attempts = attempts[-5:]
+        recent_attempts = attempts
         failed = [a for a in recent_attempts if a["result"] == "failed"]
         errors = [a for a in recent_attempts if a["result"] == "error"]
         

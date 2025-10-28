@@ -1,28 +1,17 @@
 # WiFi Diagnostic MCP Wrapper
 
+## Introduction / Features
+
 A Model Context Protocol (MCP) server that provides WiFi diagnostic tools for IoT devices through MQTT communication.
 
-## Features
-
-- **Device Status Monitoring** - Get comprehensive WiFi status from IoT devices
+- **Device Status Monitoring** - Get current WiFi status from IoT devices
 - **Signal Strength Analysis** - Monitor RSSI values for connection quality assessment
-- **Connection Logging** - Retrieve WiFi connection history and diagnostics
+- **WiFi Event Monitoring** - Retrieve WiFi events history and diagnostics
 - **WiFi Connection Status Tracking** - Detailed state transition monitoring with timestamp history
 - **MQTT Integration** - Communicate with devices through MQTT broker
 - **Dual Compatibility** - Works with both Claude Desktop and HTTP wrapper systems
 
-## Architecture
-
-### Claude Desktop (STDIO)
-```
-Claude Desktop ←STDIO→ WiFi Diagnostic MCP Server ←→ MQTT Broker ←→ IoT Devices
-```
-### MQTT Wrapper (HTTP)
-```
-MCP host ←HTTP→ MCP Wrapper ←STDIO→ WiFi Diagnostic MCP Server ←→ MQTT Broker ←→ IoT Devices
-```
-
-## WiFi Connection States
+### WiFi Connection States
 
 The system tracks complete WiFi connection lifecycle with detailed state transitions:
 
@@ -47,6 +36,16 @@ The system tracks complete WiFi connection lifecycle with detailed state transit
 | TIMEOUT | 16 | Connection timeout |
 | STATUS_CODE_FAIL | 17 | Failed with status code error |
 
+## Architecture
+
+### Claude Desktop (STDIO)
+```
+Claude Desktop ←STDIO→ WiFi Diagnostic MCP Server ←→ MQTT Broker ←→ IoT Devices
+```
+### MQTT Wrapper (HTTP)
+```
+MCP host ←HTTP→ MCP Wrapper ←STDIO→ WiFi Diagnostic MCP Server ←→ MQTT Broker ←→ IoT Devices
+```
 
 ## Configuration
 
@@ -80,25 +79,27 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-### HTTP Wrapper Setup
+### HTTP Wrapper Setup with audio server system
 For integration with MCP Wrapper systems:
 
-1. **Create configuration file** (`wifi-diagnostic.json`):
-   ```json
-   {
-     "port": 8082,
-     "host": "localhost",
-     "command": "uv",
-     "args": ["--directory", "/path/to/wifi-diagnostic-mcp-wrapper", "run", "wifi_diagnostic_server.py"],
-     "timeout": 30,
-     "max_body_size": 10485760
-   }
-   ```
+1. **Integrate with mcp_wrapper configuration file** (`mcp_wrapper/config.json`):
 
-2. **Start MCP Wrapper**:
-   ```bash
-   mcp_wrapper -config wifi_diagnostic.json
-   ```
+```json
+{
+  "port": 8082,
+  "host": "0.0.0.0",
+  "timeout": 30,
+  "max_body_size": 10485760,
+  "servers": [
+    {
+      "name": "wifi_diagnostics",
+      "command": "./examples/wifi-diagnostic-mcp-wrapper/wifi_diagnostic_server.py",
+      "args": [],
+      "description": "Python-based wifi diagnostics MCP server"
+    }
+  ]
+}
+```
 
 ## Available Tools
 
@@ -116,8 +117,8 @@ Gets the current RSSI (signal strength) from a device.
 - `device_id` (string): IoT device identifier
 - `timeout` (integer, optional): Response timeout in seconds (default: 30)
 
-### 3. get_wifi_log
-Retrieves WiFi connection logs and diagnostic information.
+### 3. get_wifi_event_log
+Retrieves WiFi event logs and diagnostic information.
 
 **Parameters:**
 - `device_id` (string): IoT device identifier
@@ -163,8 +164,8 @@ Checks the current MQTT connection status and configuration.
 Simply ask Claude natural language questions:
 - "Check the WiFi status of device dv1"
 - "What's the signal strength of dv1?"
-- "Show me the WiFi logs for device dv1"
-- "Show me the connection history of dv1"
+- "I want to check if there are wifi events for device dv1"
+- "Show me the wifi connection history of dv1"
 - "Please check the detail connection information of device dv1"
 
 ### With HTTP API (MCP Wrapper)
@@ -186,7 +187,7 @@ curl -X POST http://localhost:8082/ -H "Content-Type: application/json" -d '{"js
 curl -X POST http://localhost:8082/ -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_device_rssi","arguments":{"device_id":"dv1"}},"id":3}'
 
 # 6. Test WiFi Log Query
-curl -X POST http://localhost:8082/ -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_wifi_log","arguments":{"device_id":"dv1"}},"id":4}'
+curl -X POST http://localhost:8082/ -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_wifi_event_log","arguments":{"device_id":"dv1"}},"id":4}'
 
 # 7. Get WiFi Connection Status
 curl -X POST http://localhost:8082/ -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_wifi_connection_status","arguments":{"device_id":"dv1"}},"id":5}'
@@ -209,7 +210,6 @@ wifi-diagnostic-mcp-wrapper/
 ├── mqtt_handler_sync.py         # MQTT communication handler
 ├── iot_tools_sync.py           # IoT diagnostic tools
 ├── requirements.txt            # Python dependencies
-├── wifi-diagnostic.json        # MCP Wrapper configuration
 └── README.md                   
 ```
 
