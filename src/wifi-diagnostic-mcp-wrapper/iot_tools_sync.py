@@ -180,6 +180,114 @@ class IoTWiFiTools:
                 }
             },
             {
+                "name": "run_iperf_tx_test",
+                "description": """Run iPerf TCP transmit test to measure network throughput.
+                Tests upload speed by sending data to an iPerf server.
+                Returns periodic throughput measurements and overall statistics.""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {
+                            "type": "string",
+                            "description": "IoT device identifier"
+                        },
+                        "server_ip": {
+                            "type": "string",
+                            "description": "iPerf server IP address"
+                        },
+                        "duration": {
+                            "type": "integer",
+                            "description": "Test duration in seconds",
+                            "default": 30
+                        },
+                        "interval": {
+                            "type": "integer",
+                            "description": "Report interval in seconds",
+                            "default": 1
+                        },
+                        "timeout": {
+                            "type": "integer",
+                            "description": "Response timeout in seconds",
+                            "default": 60
+                        }
+                    },
+                    "required": ["device_id", "server_ip"]
+                }
+            },
+            {
+                "name": "get_tx_rate",
+                "description": """Get current WiFi TX (transmit) rate and MCS information.
+                Shows the actual data rate being used for transmissions.""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {
+                            "type": "string",
+                            "description": "IoT device identifier"
+                        },
+                        "timeout": {
+                            "type": "integer",
+                            "description": "Response timeout in seconds",
+                            "default": 30
+                        }
+                    },
+                    "required": ["device_id"]
+                }
+            },
+            {
+                "name": "connect_wifi",
+                "description": """Connect to a new WiFi network with specified SSID and password.
+                Uses ATW0, ATW1, and ATWC commands to establish connection.""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {
+                            "type": "string",
+                            "description": "IoT device identifier"
+                        },
+                        "ssid": {
+                            "type": "string",
+                            "description": "WiFi network SSID"
+                        },
+                        "password": {
+                            "type": "string",
+                            "description": "WiFi network password"
+                        },
+                        "timeout": {
+                            "type": "integer",
+                            "description": "Response timeout in seconds",
+                            "default": 30
+                        }
+                    },
+                    "required": ["device_id", "ssid", "password"]
+                }
+            },
+            {
+                "name": "ping_test",
+                "description": """Run ping test to check network connectivity and latency.
+                Tests connection to specified IP address (usually gateway or PC).
+                Returns packet loss statistics and latency measurements.""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {
+                            "type": "string",
+                            "description": "IoT device identifier"
+                        },
+                        "target_ip": {
+                            "type": "string",
+                            "description": "Target IP address (PC or gateway)"
+                        },
+                        "timeout": {
+                            "type": "integer",
+                            "description": "Response timeout in seconds",
+                            "default": 30
+                        }
+                    },
+                    "required": ["device_id", "target_ip"]
+                }
+            },
+            {
                 "name": "configure_mqtt",
                 "description": "Configure and connect to MQTT broker",
                 "inputSchema": {
@@ -620,6 +728,321 @@ class IoTWiFiTools:
         
         return parsed
     
+    def run_iperf_tx_test(self, device_id: str, server_ip: str, duration: int = 30, 
+                      interval: int = 1, timeout: int = 60) -> Dict[str, Any]:
+        """Run iPerf TCP transmit test"""
+        try:
+            if not device_id or not server_ip:
+                return {"error": "Missing required parameters"}
+            
+            if not self.mqtt_handler.is_connected():
+                return {"error": "MQTT not connected. Use configure_mqtt first."}
+            
+            # Build iPerf command: ATWT=-c,server_IP,-t,duration,-i,interval
+            command = f"ATWT=-c,{server_ip},-t,{duration},-i,{interval}"
+            response = self.mqtt_handler.send_command(command, device_id, timeout)
+            raw_response = response.get("data", {}).get("response", "")
+            
+            # Parse iPerf results
+            parsed_results = self._parse_iperf_results(raw_response)
+            
+            video_assessment = self._assess_video_streaming(parsed_results)
+            return {
+                "status": "success",
+                "message": f"iPerf TX test completed for {device_id}",
+                "device_id": device_id,
+                "server_ip": server_ip,
+                "test_duration": duration,
+                "results": parsed_results,
+                "video_streaming_assessment": video_assessment,
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+    def get_tx_rate(self, device_id: str, timeout: int = 30) -> Dict[str, Any]:
+        """Get current WiFi TX rate and MCS information"""
+        try:
+            if not device_id:
+                return {"error": "Missing device_id parameter"}
+            
+            if not self.mqtt_handler.is_connected():
+                return {"error": "MQTT not connected. Use configure_mqtt first."}
+            
+            response = self.mqtt_handler.send_command("ATWd=0", device_id, timeout)
+            raw_response = response.get("data", {}).get("response", "")
+            
+            # Parse TX rate from response
+            tx_info = self._parse_tx_rate(raw_response)
+            
+            return {
+                "status": "success",
+                "message": f"TX rate information from {device_id}",
+                "device_id": device_id,
+                "tx_info": tx_info,
+                "raw_response": raw_response,
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+    def connect_wifi(self, device_id: str, ssid: str, password: str, 
+                    timeout: int = 30) -> Dict[str, Any]:
+        """Connect to a new WiFi network"""
+        try:
+            if not device_id or not ssid or not password:
+                return {"error": "Missing required parameters"}
+            
+            if not self.mqtt_handler.is_connected():
+                return {"error": "MQTT not connected. Use configure_mqtt first."}
+            
+            # Step 1: Set SSID (ATW0=ssid)
+            response1 = self.mqtt_handler.send_command(f"ATW0={ssid}", device_id, timeout)
+            
+            # Step 2: Set password (ATW1=password)
+            response2 = self.mqtt_handler.send_command(f"ATW1={password}", device_id, timeout)
+            
+            # Step 3: Connect (ATWC)
+            response3 = self.mqtt_handler.send_command("ATWC", device_id, timeout)
+            raw_response = response3.get("data", {}).get("response", "")
+            
+            return {
+                "status": "success",
+                "message": f"WiFi connection initiated on {device_id}",
+                "device_id": device_id,
+                "ssid": ssid,
+                "raw_response": raw_response,
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+    def ping_test(self, device_id: str, target_ip: str, timeout: int = 30) -> Dict[str, Any]:
+        """Run ping test to check network connectivity"""
+        try:
+            if not device_id or not target_ip:
+                return {"error": "Missing required parameters"}
+            
+            if not self.mqtt_handler.is_connected():
+                return {"error": "MQTT not connected. Use configure_mqtt first."}
+            
+            # Run ping test (ATWI=target_IP)
+            command = f"ATWI={target_ip}"
+            response = self.mqtt_handler.send_command(command, device_id, timeout)
+            raw_response = response.get("data", {}).get("response", "")
+            
+            # Parse ping results
+            ping_stats = self._parse_ping_results(raw_response)
+            ping_stats_assessment = self._assess_latency_for_video(ping_stats)
+            
+            return {
+                "status": "success",
+                "message": f"Ping test completed for {device_id}",
+                "device_id": device_id,
+                "target_ip": target_ip,
+                "statistics": ping_stats,
+                "latency_assessment": ping_stats_assessment,
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+    def _assess_video_streaming(self, iperf_results: Dict[str, Any]) -> Dict[str, Any]:
+        """Assess if network conditions are suitable for video streaming"""
+        avg_kbps = iperf_results.get("average_kbps", 0)
+        avg_mbps = avg_kbps / 1000.0
+        
+        assessment = {
+            "throughput_mbps": round(avg_mbps, 2),
+            "suitable_for_video": False,
+            "quality_level": "unsuitable",
+            "recommendation": ""
+        }
+        
+        if avg_mbps < 5:
+            assessment["suitable_for_video"] = False
+            assessment["quality_level"] = "unsuitable"
+            assessment["recommendation"] = "Current network conditions are NOT suitable for video transmission. Throughput is below 5 Mbps."
+        elif avg_mbps < 10:
+            assessment["suitable_for_video"] = True
+            assessment["quality_level"] = "basic"
+            assessment["recommendation"] = "Network can support basic quality video streaming (5-10 Mbps). Consider lower resolution for stable transmission."
+        elif avg_mbps < 40:
+            assessment["suitable_for_video"] = True
+            assessment["quality_level"] = "good"
+            assessment["recommendation"] = "Good network conditions for video streaming (10-40 Mbps). Suitable for HD video transmission."
+        else:
+            assessment["suitable_for_video"] = True
+            assessment["quality_level"] = "excellent"
+            assessment["recommendation"] = "Excellent network conditions for video streaming (>40 Mbps). Optimal for high-quality video transmission."
+        
+        return assessment
+    
+    def _assess_latency_for_video(self, ping_stats: Dict[str, Any]) -> Dict[str, Any]:
+        """Assess if latency is suitable for video streaming"""
+        avg_ms = ping_stats.get("average_ms", 0)
+        
+        assessment = {
+            "latency_ms": avg_ms,
+            "suitable_for_video": False,
+            "quality_level": "unsuitable",
+            "recommendation": ""
+        }
+        
+        if avg_ms < 50:
+            assessment["suitable_for_video"] = True
+            assessment["quality_level"] = "excellent"
+            assessment["recommendation"] = f"Low latency ({avg_ms}ms < 50ms). Excellent for real-time video streaming."
+        else:
+            assessment["suitable_for_video"] = False
+            assessment["quality_level"] = "high_latency"
+            assessment["recommendation"] = f"High latency ({avg_ms}ms > 50ms). May affect real-time video quality."
+        
+        return assessment
+
+    def _parse_iperf_results(self, raw_response: str) -> Dict[str, Any]:
+        """Parse iPerf test results from raw response"""
+        results = {
+            "intervals": [],
+            "total_sent_kb": 0,
+            "total_time_ms": 0,
+            "average_kbps": 0,
+            "min_kbps": 0,
+            "max_kbps": 0
+        }
+        
+        try:
+            lines = raw_response.split('\n')
+            interval_kbps_list = []
+            
+            for line in lines:
+                # Parse interval data: "tcp_client_func: Send 5360 KBytes in 1000 ms, 43916 Kbits/sec"
+                if "tcp_client_func:" in line and "KBytes" in line and "Kbits/sec" in line and ("Send" in line or "send" in line):
+                    try:
+                        parts = line.split()
+                        # Find indices of key values
+                        send_idx = -1
+                        for i, part in enumerate(parts):
+                            if part == "Send" or part == "send":
+                                send_idx = i
+                                break
+
+                        if send_idx == -1:
+                            continue
+                            
+                        in_idx = parts.index("in")
+
+                        kb_sent = int(parts[send_idx + 1])
+                        time_ms = int(parts[in_idx + 1])
+
+                        # Find Kbits/sec value (last numeric value before "Kbits/sec")
+                        kbps = 0
+                        for i in range(len(parts)-1, -1, -1):
+                            if "Kbits/sec" in parts[i]:
+                                kbps = int(parts[i-1].replace(',', ''))
+                                break
+
+                        if "[END]" in line or "Totally" in line:
+                            # This is the total summary
+                            results["total_sent_kb"] = kb_sent
+                            results["total_time_ms"] = time_ms
+                            results["average_kbps"] = kbps
+                        else:
+                            # This is an interval measurement
+                            results["intervals"].append({
+                                "sent_kb": kb_sent,
+                                "time_ms": time_ms,
+                                "kbps": kbps
+                            })
+                            interval_kbps_list.append(kbps)
+                    except (ValueError, IndexError) as e:
+                        logger.warning(f"Failed to parse line: {line}, error: {e}")
+                        continue
+            
+            # Calculate min/max from intervals
+            if interval_kbps_list:
+                results["min_kbps"] = min(interval_kbps_list)
+                results["max_kbps"] = max(interval_kbps_list)
+                
+        except Exception as e:
+            logger.warning(f"Failed to parse iPerf results: {e}")
+        
+        return results
+
+    def _parse_tx_rate(self, raw_response: str) -> Dict[str, Any]:
+        """Parse TX rate information from raw response"""
+        tx_info = {
+            "rate_index": None,
+            "mcs_mode": None,
+            "rate_description": None
+        }
+        
+        try:
+            # Parse: "[fATWd] Show Tx MCS Rate, tx_rate: 19[HT_MCS7]"
+            if "tx_rate:" in raw_response:
+                rate_part = raw_response.split("tx_rate:")[1].strip()
+                # Extract rate index and MCS mode
+                if "[" in rate_part and "]" in rate_part:
+                    rate_index = rate_part.split("[")[0].strip()
+                    mcs_mode = rate_part.split("[")[1].split("]")[0].strip()
+                    
+                    tx_info["rate_index"] = rate_index
+                    tx_info["mcs_mode"] = mcs_mode
+                    tx_info["rate_description"] = f"Rate index {rate_index} ({mcs_mode})"
+        except Exception as e:
+            logger.warning(f"Failed to parse TX rate: {e}")
+        
+        return tx_info
+
+    def _parse_ping_results(self, raw_response: str) -> Dict[str, Any]:
+        """Parse ping test results from raw response"""
+        stats = {
+            "packets_transmitted": 0,
+            "packets_received": 0,
+            "packet_loss_percent": 0,
+            "average_ms": 0,
+            "min_ms": 0,
+            "max_ms": 0,
+            "ping_responses": []
+        }
+        
+        try:
+            lines = raw_response.split('\n')
+            for line in lines:
+                # Parse individual ping responses: "[ping_test] 32 bytes from 192.168.0.1: icmp_seq=1 time=2 ms"
+                if "bytes from" in line and "icmp_seq=" in line and "time=" in line:
+                    parts = line.split()
+                    for i, part in enumerate(parts):
+                        if part.startswith("time="):
+                            time_ms = int(part.split("=")[1])
+                            stats["ping_responses"].append(time_ms)
+                
+                # Parse summary: "[ping_test] 4 packets transmitted, 4 received, 0% packet loss, average 1 ms"
+                if "packets transmitted" in line:
+                    parts = line.split()
+                    for i, part in enumerate(parts):
+                        if part == "packets" and i > 0 and parts[i-1].isdigit():
+                            stats["packets_transmitted"] = int(parts[i-1])
+                        if part == "received," and i > 0 and parts[i-1].isdigit():
+                            stats["packets_received"] = int(parts[i-1])
+                        if part.endswith("%") and "loss" in line:
+                            stats["packet_loss_percent"] = float(part.rstrip("%"))
+                        if part == "average" and i+1 < len(parts):
+                            stats["average_ms"] = int(parts[i+1])
+                
+                # Parse min/max: "[ping_test] min: 0 ms, max: 2 ms"
+                if "min:" in line and "max:" in line:
+                    parts = line.split()
+                    for i, part in enumerate(parts):
+                        if part == "min:" and i+1 < len(parts):
+                            stats["min_ms"] = int(parts[i+1])
+                        if part == "max:" and i+1 < len(parts):
+                            stats["max_ms"] = int(parts[i+1])
+        except Exception as e:
+            logger.warning(f"Failed to parse ping results: {e}")
+        
+        return stats
+
     def configure_mqtt(self, broker: str, port: int = 1883, username: str = "", password: str = "") -> Dict[str, Any]:
         """Configure and connect to MQTT broker"""
         try:

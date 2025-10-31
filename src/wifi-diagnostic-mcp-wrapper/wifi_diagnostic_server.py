@@ -38,6 +38,10 @@ class WiFiDiagnosticServer:
             "clear_wifi_event_log": self.iot_tools.clear_wifi_event_log,
             "get_wifi_connection_status": self.iot_tools.get_wifi_connection_status,
             "clear_wifi_connection_status": self.iot_tools.clear_wifi_connection_status,
+            "run_iperf_tx_test": self.iot_tools.run_iperf_tx_test, 
+            "get_tx_rate": self.iot_tools.get_tx_rate, 
+            "connect_wifi": self.iot_tools.connect_wifi,  
+            "ping_test": self.iot_tools.ping_test,
             "configure_mqtt": self.iot_tools.configure_mqtt,
             "mqtt_status": self.iot_tools.mqtt_status,
         }
