@@ -32,15 +32,17 @@ class WiFiDiagnosticServer:
         
         # Create tools mapping
         self.tools = {
-            "get_device_status": self.iot_tools.get_device_status,
+            "get_device_info": self.iot_tools.get_device_info,
             "get_device_rssi": self.iot_tools.get_device_rssi,
             "get_wifi_event_log": self.iot_tools.get_wifi_event_log,
             "clear_wifi_event_log": self.iot_tools.clear_wifi_event_log,
             "get_wifi_connection_status": self.iot_tools.get_wifi_connection_status,
             "clear_wifi_connection_status": self.iot_tools.clear_wifi_connection_status,
-            "run_iperf_tx_test": self.iot_tools.run_iperf_tx_test, 
+            "run_iperf_tx_test": self.iot_tools.run_iperf_tx_test,
+            "get_wifi_clm_info": self.iot_tools.get_wifi_clm_info,  
             "get_tx_rate": self.iot_tools.get_tx_rate, 
             "connect_wifi": self.iot_tools.connect_wifi,  
+            "trigger_jammer": self.iot_tools.trigger_jammer,
             "ping_test": self.iot_tools.ping_test,
             "configure_mqtt": self.iot_tools.configure_mqtt,
             "mqtt_status": self.iot_tools.mqtt_status,

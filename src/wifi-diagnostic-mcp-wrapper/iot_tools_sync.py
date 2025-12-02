@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 import logging
+import time
 
 logger = logging.getLogger("iot-tools-sync")
 
@@ -56,8 +57,8 @@ class IoTWiFiTools:
         """Get tool definitions for MCP protocol"""
         return [
             {
-                "name": "get_device_status",
-                "description": "Get current WiFi status from IoT device using ATW? command",
+                "name": "get_device_info",
+                "description": "Get current WiFi information from IoT device using ATW? command",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -235,9 +236,48 @@ class IoTWiFiTools:
                 }
             },
             {
+                "name": "get_wifi_clm_info",
+                "description": """Get WiFi Channel Load Measurement (CLM) information.
+                    Returns CLM ratio, NHM idle ratio, and NHM tx ratio.
+                    CLM > 65% indicates network congestion.""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {
+                            "type": "string",
+                            "description": "IoT device identifier"
+                        },
+                        "timeout": {
+                            "type": "integer",
+                            "description": "Response timeout in seconds",
+                            "default": 30
+                        }
+                    },
+                    "required": ["device_id"]
+                }
+            },
+            {
+                "name": "trigger_jammer",
+                "description": """Trigger 2.4GHz wifi clm updated test.
+                    Sends iPerf command to jammer device to create 2.4GHz interference.
+                    Camera will detect CLM congestion and auto-switch to 5GHz.
+                    Returns the wifi clm updated event when camera completes switching.""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "timeout": {
+                            "type": "integer",
+                            "description": "Timeout waiting for wifi clm updated event (seconds)",
+                            "default": 60
+                        }
+                    }
+                }
+            },
+            {
                 "name": "connect_wifi",
                 "description": """Connect to a new WiFi network with specified SSID and password.
-                Uses ATW0, ATW1, and ATWC commands to establish connection.""",
+                This will disconnect the device from current network.
+                The device will reconnect to MQTT after WiFi connection is established.""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -256,7 +296,7 @@ class IoTWiFiTools:
                         "timeout": {
                             "type": "integer",
                             "description": "Response timeout in seconds",
-                            "default": 30
+                            "default": 45
                         }
                     },
                     "required": ["device_id", "ssid", "password"]
@@ -324,7 +364,7 @@ class IoTWiFiTools:
             }
         ]
     
-    def get_device_status(self, device_id: str, timeout: int = 30) -> Dict[str, Any]:
+    def get_device_info(self, device_id: str, timeout: int = 30) -> Dict[str, Any]:
         """Get current WiFi status from IoT device using ATW? command"""
         try:
             if not device_id:
@@ -333,8 +373,8 @@ class IoTWiFiTools:
             if not self.mqtt_handler.is_connected():
                 return {"error": "MQTT not connected. Use configure_mqtt first."}
             
-            response = self.mqtt_handler.send_command("ATW?", device_id, timeout)
-            raw_response = response.get("data", {}).get("response", "")
+            response = self.mqtt_handler.send_command("get_device_info", device_id, {}, timeout)
+            raw_response = response.get("payload", {}).get("result", {}).get("response", "")
             
             return {
                 "status": "success",
@@ -355,8 +395,8 @@ class IoTWiFiTools:
             if not self.mqtt_handler.is_connected():
                 return {"error": "MQTT not connected. Use configure_mqtt first."}
             
-            response = self.mqtt_handler.send_command("ATWR", device_id, timeout)
-            raw_response = response.get("data", {}).get("response", "")
+            response = self.mqtt_handler.send_command("get_device_rssi", device_id, {}, timeout)
+            raw_response = response.get("payload", {}).get("result", {}).get("response", "")
             
             return {
                 "status": "success",
@@ -367,7 +407,69 @@ class IoTWiFiTools:
             }
         except Exception as e:
             return {"error": str(e)}
-    
+        
+    def get_wifi_clm_info(self, device_id: str, timeout: int = 30) -> Dict[str, Any]:
+        """Get WiFi CLM (Channel Load Measurement) information"""
+        try:
+            if not device_id:
+                return {"error": "Missing device_id parameter"}
+            
+            if not self.mqtt_handler.is_connected():
+                return {"error": "MQTT not connected. Use configure_mqtt first."}
+            
+            response = self.mqtt_handler.send_command("get_wifi_clm_info", device_id, {}, timeout)
+            raw_response = response.get("payload", {}).get("result", {}).get("response", "")
+            
+            # Parse CLM info from response
+            clm_info = self._parse_clm_info(raw_response)
+            
+            return {
+                "status": "success",
+                "message": f"CLM info from {device_id}",
+                "device_id": device_id,
+                "clm_info": clm_info,
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+    def _parse_clm_info(self, raw_response: str) -> Dict[str, Any]:
+        """Parse CLM info from raw response"""
+        clm_info = {
+            "clm_ratio": None,
+            "nhm_idle_ratio": None,
+            "nhm_tx_ratio": None,
+            "congestion_level": "unknown"
+        }
+        
+        try:
+            # Parse: "CLM ratio: 45%, NHM idle: 30%, NHM tx: 25%"
+            import re
+            clm_match = re.search(r'CLM ratio:\s*(\d+)', raw_response)
+            nhm_idle_match = re.search(r'NHM idle:\s*(\d+)', raw_response)
+            nhm_tx_match = re.search(r'NHM tx:\s*(\d+)', raw_response)
+            
+            if clm_match:
+                clm_info["clm_ratio"] = int(clm_match.group(1))
+            if nhm_idle_match:
+                clm_info["nhm_idle_ratio"] = int(nhm_idle_match.group(1))
+            if nhm_tx_match:
+                clm_info["nhm_tx_ratio"] = int(nhm_tx_match.group(1))
+            
+            # Determine congestion level
+            if clm_info["clm_ratio"] is not None:
+                clm = clm_info["clm_ratio"]
+                if clm < 30:
+                    clm_info["congestion_level"] = "low"
+                elif clm < 65:
+                    clm_info["congestion_level"] = "moderate"
+                else:
+                    clm_info["congestion_level"] = "high"
+        except Exception as e:
+            pass
+        
+        return clm_info
+
     def get_wifi_event_log(self, device_id: str, timeout: int = 30) -> Dict[str, Any]:
         """Get WiFi connection log from IoT device using WIFIEVENTLOG command"""
         try:
@@ -377,9 +479,8 @@ class IoTWiFiTools:
             if not self.mqtt_handler.is_connected():
                 return {"error": "MQTT not connected. Use configure_mqtt first."}
             
-            response = self.mqtt_handler.send_command("WIFIEVENTLOG", device_id, timeout)
-            #logger.info(f"Received response: {response}")
-            raw_response = response.get("data", {}).get("response", "")
+            response = self.mqtt_handler.send_command("get_wifi_event_log", device_id, {}, timeout)
+            raw_response = response.get("payload", {}).get("result", {}).get("response", "")
             
             return {
                 "status": "success",
@@ -400,8 +501,8 @@ class IoTWiFiTools:
             if not self.mqtt_handler.is_connected():
                 return {"error": "MQTT not connected. Use configure_mqtt first."}
             
-            response = self.mqtt_handler.send_command("WIFIEVENTLOG=CLEAR", device_id, timeout)
-            raw_response = response.get("data", {}).get("response", "")
+            response = self.mqtt_handler.send_command("clear_wifi_event_log", device_id, {}, timeout)
+            raw_response = response.get("payload", {}).get("result", {}).get("response", "")
             
             return {
                 "status": "success",
@@ -596,8 +697,8 @@ class IoTWiFiTools:
             if not self.mqtt_handler.is_connected():
                 return {"error": "MQTT not connected. Use configure_mqtt first."}
             
-            response = self.mqtt_handler.send_command("CONNECTINFO", device_id, timeout)
-            raw_response = response.get("data", {}).get("response", "")
+            response = self.mqtt_handler.send_command("get_wifi_connection_status", device_id, {}, timeout)
+            raw_response = response.get("payload", {}).get("result", {}).get("response", "")
             
             parsed_log = self._parse_status_log(raw_response)
 
@@ -664,8 +765,8 @@ class IoTWiFiTools:
             if not self.mqtt_handler.is_connected():
                 return {"error": "MQTT not connected. Use configure_mqtt first."}
             
-            response = self.mqtt_handler.send_command("CONNECTINFO=CLEAR", device_id, timeout)
-            raw_response = response.get("data", {}).get("response", "")
+            response = self.mqtt_handler.send_command("clear_wifi_connection_status", device_id, {}, timeout)
+            raw_response = response.get("payload", {}).get("result", {}).get("response", "")
             
             return {
                 "status": "success",
@@ -739,9 +840,13 @@ class IoTWiFiTools:
                 return {"error": "MQTT not connected. Use configure_mqtt first."}
             
             # Build iPerf command: ATWT=-c,server_IP,-t,duration,-i,interval
-            command = f"ATWT=-c,{server_ip},-t,{duration},-i,{interval}"
-            response = self.mqtt_handler.send_command(command, device_id, timeout)
-            raw_response = response.get("data", {}).get("response", "")
+            # UDP mode is more stable: ATWU=-c,server_IP,-t,duration,-i,interval,-b,bandwidth(ex. 10m)
+            args = {
+                "server_ip": server_ip,
+                "duration_s": duration
+            }
+            response = self.mqtt_handler.send_command("run_iperf_tx_test", device_id, args, timeout)
+            raw_response = response.get("payload", {}).get("result", {}).get("response", "")
             
             # Parse iPerf results
             parsed_results = self._parse_iperf_results(raw_response)
@@ -769,8 +874,8 @@ class IoTWiFiTools:
             if not self.mqtt_handler.is_connected():
                 return {"error": "MQTT not connected. Use configure_mqtt first."}
             
-            response = self.mqtt_handler.send_command("ATWd=0", device_id, timeout)
-            raw_response = response.get("data", {}).get("response", "")
+            response = self.mqtt_handler.send_command("get_tx_rate", device_id, {}, timeout)
+            raw_response = response.get("payload", {}).get("result", {}).get("response", "")
             
             # Parse TX rate from response
             tx_info = self._parse_tx_rate(raw_response)
@@ -787,7 +892,7 @@ class IoTWiFiTools:
             return {"error": str(e)}
 
     def connect_wifi(self, device_id: str, ssid: str, password: str, 
-                    timeout: int = 30) -> Dict[str, Any]:
+                    timeout: int = 45) -> Dict[str, Any]:
         """Connect to a new WiFi network"""
         try:
             if not device_id or not ssid or not password:
@@ -796,15 +901,14 @@ class IoTWiFiTools:
             if not self.mqtt_handler.is_connected():
                 return {"error": "MQTT not connected. Use configure_mqtt first."}
             
-            # Step 1: Set SSID (ATW0=ssid)
-            response1 = self.mqtt_handler.send_command(f"ATW0={ssid}", device_id, timeout)
-            
-            # Step 2: Set password (ATW1=password)
-            response2 = self.mqtt_handler.send_command(f"ATW1={password}", device_id, timeout)
+            args = {
+                "ssid": ssid,
+                "password": password
+            }
             
             # Step 3: Connect (ATWC)
-            response3 = self.mqtt_handler.send_command("ATWC", device_id, timeout)
-            raw_response = response3.get("data", {}).get("response", "")
+            response = self.mqtt_handler.send_command("connect_wifi", device_id, args, timeout)
+            raw_response = response.get("payload", {}).get("result", {}).get("response", "")
             
             return {
                 "status": "success",
@@ -826,10 +930,12 @@ class IoTWiFiTools:
             if not self.mqtt_handler.is_connected():
                 return {"error": "MQTT not connected. Use configure_mqtt first."}
             
-            # Run ping test (ATWI=target_IP)
-            command = f"ATWI={target_ip}"
-            response = self.mqtt_handler.send_command(command, device_id, timeout)
-            raw_response = response.get("data", {}).get("response", "")
+            # Build args for ping test
+            args = {
+                "target_ip": target_ip
+            }
+            response = self.mqtt_handler.send_command("ping_test", device_id, args, timeout)
+            raw_response = response.get("payload", {}).get("result", {}).get("response", "")
             
             # Parse ping results
             ping_stats = self._parse_ping_results(raw_response)
@@ -844,6 +950,49 @@ class IoTWiFiTools:
                 "latency_assessment": ping_stats_assessment,
                 "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
             }
+        except Exception as e:
+            return {"error": str(e)}
+
+    def trigger_jammer(self, timeout: int = 60) -> Dict[str, Any]:
+        """Trigger 2.4GHz congestion demo and wait for band switch event"""
+        try:
+            if not self.mqtt_handler.is_connected():
+                return {"error": "MQTT not connected. Use configure_mqtt first."}
+            
+            jammer_device_id = "jammer"
+            iperf_server_ip = "192.168.0.100"
+            iperf_duration = 30
+            
+            # Clear previous events
+            self.mqtt_handler.received_events.clear()
+            
+            # Start iPerf on jammer device
+            args = {
+                "server_ip": iperf_server_ip,
+                "duration_s": iperf_duration
+            }
+            self.mqtt_handler.send_command_no_wait("run_iperf_tx_test", jammer_device_id, args)
+            logger.info(f"[DEMO] Interference triggered")
+            
+            # Wait for wifi clm updated event
+            logger.info(f"[DEMO] Waiting for wifi clm updated event...")
+            
+            start_time = time.time()
+            while (time.time() - start_time) < timeout:
+                for event in self.mqtt_handler.received_events:
+                    payload = event.get("payload", {})
+                    if payload.get("event_type") == "wifi_clm_updated":
+                        # Return event directly (already JSON format from device)
+                        return event
+                time.sleep(0.5)
+            
+            return {
+                "status": "timeout",
+                "message": "Wifi clm updated event not received within timeout",
+                "hint": "Camera may not have detected enough congestion, or CLM threshold not reached",
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            }
+            
         except Exception as e:
             return {"error": str(e)}
 
@@ -902,8 +1051,15 @@ class IoTWiFiTools:
 
     def _parse_iperf_results(self, raw_response: str) -> Dict[str, Any]:
         """Parse iPerf test results from raw response"""
+        # results = {
+        #     "intervals": [],
+        #     "total_sent_kb": 0,
+        #     "total_time_ms": 0,
+        #     "average_kbps": 0,
+        #     "min_kbps": 0,
+        #     "max_kbps": 0
+        # }
         results = {
-            "intervals": [],
             "total_sent_kb": 0,
             "total_time_ms": 0,
             "average_kbps": 0,
@@ -917,7 +1073,7 @@ class IoTWiFiTools:
             
             for line in lines:
                 # Parse interval data: "tcp_client_func: Send 5360 KBytes in 1000 ms, 43916 Kbits/sec"
-                if "tcp_client_func:" in line and "KBytes" in line and "Kbits/sec" in line and ("Send" in line or "send" in line):
+                if "udp_client_func:" in line and "KBytes" in line and "Kbits/sec" in line and ("Send" in line or "send" in line):
                     try:
                         parts = line.split()
                         # Find indices of key values
@@ -949,11 +1105,11 @@ class IoTWiFiTools:
                             results["average_kbps"] = kbps
                         else:
                             # This is an interval measurement
-                            results["intervals"].append({
-                                "sent_kb": kb_sent,
-                                "time_ms": time_ms,
-                                "kbps": kbps
-                            })
+                            # results["intervals"].append({
+                            #     "sent_kb": kb_sent,
+                            #     "time_ms": time_ms,
+                            #     "kbps": kbps
+                            # })
                             interval_kbps_list.append(kbps)
                     except (ValueError, IndexError) as e:
                         logger.warning(f"Failed to parse line: {line}, error: {e}")

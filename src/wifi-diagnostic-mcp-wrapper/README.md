@@ -356,9 +356,24 @@ typedef struct {
 } wifi_status_log_entry_t;
 ```
 
-### AT Commands (Device Side)
+### AT Commands (Pro2 Device Side)
+**Users can use the bin in fw folder**
+
+* pro2 fw: flash_ntz.bin
+* iperf: amebapro2_iperf_method.rar
 
 The device responds to the following AT commands:
+#### MQTT Commands
+```
+MQTTCLIENT=<clientID>
+MQTTUSER=<username>
+MQTTPASS=<password>
+MQTTADDR=<broker_address>
+MQTTPORT=<port>           // Default: 1883
+MQTTPUB=<publish_topic>   // Default: wifi_diagnostic/iot/dv1/response
+MQTTSUB=<subscribe_topic> // Default: wifi_diagnostic/iot/dv1/command
+MQTTSTATUS                // Check status
+```
 
 #### Basic Diagnostic Commands
 ```
@@ -397,11 +412,13 @@ Time: 12345, Error: PASSWORD_WRONG
 #### Clear Status Log
 ```
 CONNECTINFO=CLEAR
+WIFIEVENTLOG=CLEAR
 ```
 
 **Response:**
 ```
 WiFi status log cleared
+WiFI event log cleared
 ```
 
 ### Important Notes

@@ -264,7 +264,7 @@ class HealthcareModule(FeatureModule):
                             "reason": "sitting_detected"
                         })
 
-                    if (("EXIT接近門口" in line) or ("EXIT準備出門" in line) or ("EXIT" in upper)) and not triggered["EXIT"]:
+                    if (("EXIT: NEAR THE DOOR" in line) or ("EXIT: READY TO LEAVE" in line) or ("EXIT" in upper)) and not triggered["EXIT"]:
                         triggered["EXIT"] = True
                         await self.connection_module.send_command("AUDIO=CLOSE")
                         event_log.append({
@@ -308,6 +308,5 @@ class HealthcareModule(FeatureModule):
                     except Exception:
                         pass
             except Exception as e:
-                # 只記錄，不拋出
                 print(f"Failed to send TOF=STOP: {e}")
             

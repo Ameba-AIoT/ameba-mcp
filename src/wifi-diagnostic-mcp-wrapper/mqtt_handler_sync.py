@@ -3,8 +3,8 @@ import logging
 import os
 import uuid
 import time
-from datetime import datetime
-from typing import Dict, Optional
+from datetime import datetime, timezone
+from typing import Dict, Optional, List
 from dotenv import load_dotenv
 import paho.mqtt.client as mqtt
 
@@ -17,6 +17,7 @@ class SyncMQTTHandler:
         self.mqtt_client: Optional[mqtt.Client] = None
         self.device_responses: Dict[str, Dict] = {}
         self.pending_requests: Dict[str, bool] = {}
+        self.received_events: List[Dict] = []
         load_dotenv()
 
         # Load configuration from environment variables
@@ -27,11 +28,11 @@ class SyncMQTTHandler:
         self.team_prefix = os.getenv("TEAM_PREFIX", "iot")
         
         # MQTT Topics
-        self.base_command_topic = f"wifi_diagnostic/{self.team_prefix}"
-        self.base_response_topic = f"wifi_diagnostic/{self.team_prefix}"
-        
+        self.base_topic = f"rtk/v1/rtk-home/living-room"
+        self.command_counter = 0
+
         self.connected = False
-    
+
     def connect(self):
         """Establish MQTT connection"""
         try:
@@ -85,8 +86,9 @@ class SyncMQTTHandler:
             self.connected = True
             logger.info("Connected to MQTT broker successfully")
             # Subscribe to response topics
-            client.subscribe(f"{self.base_response_topic}/+/response")
-            logger.info(f"Subscribed to topics: {self.base_response_topic}/+/response")
+            client.subscribe(f"{self.base_topic}/+/cmd/res")
+            client.subscribe(f"{self.base_topic}/+/evt/#")
+            logger.info(f"Subscribed to response and event topics")
         else:
             logger.error(f"Failed to connect to MQTT broker, return code: {rc}")
 
@@ -97,11 +99,17 @@ class SyncMQTTHandler:
             payload = json.loads(msg.payload.decode())
             logger.info(f"Received message on {topic}")
             
-            if "/response" in topic:
-                request_id = payload.get("request_id")
+            if "/cmd/res" in topic:
+                request_id = payload.get("payload", {}).get("id")
                 if request_id and request_id in self.pending_requests:
                     self.device_responses[request_id] = payload
                     self.pending_requests[request_id] = True
+            
+            elif "/evt/" in topic:
+                # Log event (band switch, etc.)
+                self.received_events.append(payload)
+                event_type = payload.get("payload", {}).get("event_type", "unknown")
+                logger.info(f"[EVENT] Received: {event_type}")
                     
         except Exception as e:
             logger.error(f"Error processing MQTT message: {e}")
@@ -111,20 +119,57 @@ class SyncMQTTHandler:
         self.connected = False
         logger.warning(f"Disconnected from MQTT broker, return code: {rc}")
 
-    def send_command(self, command: str, device_id: str, timeout: int = 30) -> Dict:
+    def send_command_no_wait(self, op: str, device_id: str, args: dict = None) -> bool:
+        """Send command without waiting for response (fire-and-forget)"""
+        if not self.is_connected():
+            return False
+        
+        self.command_counter += 1
+        op_formatted = op.replace("_", "-")
+        request_id = f"cmd-iot-{op_formatted}-{self.command_counter:03d}"
+        
+        device_command_topic = f"{self.base_topic}/{device_id}/cmd/req"
+        
+        payload = {
+            "schema": f"cmd.iot.{op}/1.0",
+            "ts": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "payload": {
+                "id": request_id,
+                "op": op,
+                "args": args or {},
+                "timeout_ms": 45000,
+                "expect": "result"
+            }
+        }
+        
+        result = self.mqtt_client.publish(device_command_topic, json.dumps(payload))
+        logger.info(f"Sent command '{op}' to device '{device_id}' (no wait)")
+        
+        return result.rc == mqtt.MQTT_ERR_SUCCESS
+
+    def send_command(self, op: str, device_id: str, args: dict = None, timeout: int = 30) -> Dict:
         """Send command and wait for response (synchronous)"""
         if not self.is_connected():
             raise Exception("MQTT not connected")
         
-        request_id = str(uuid.uuid4())
+        self.command_counter += 1
+        op_formatted = op.replace("_", "-")
+        request_id = f"cmd-iot-{op_formatted}-{self.command_counter:03d}"
         
         # Build device-specific command topic
-        device_command_topic = f"{self.base_command_topic}/{device_id}/command"
+        device_command_topic = f"{self.base_topic}/{device_id}/cmd/req"
         
-        # Prepare command payload
+        # Prepare command payload (RTK format)
         payload = {
-            "request_id": request_id,
-            "command": command
+            "schema": f"cmd.iot.{op}/1.0",
+            "ts": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "payload": {
+                "id": request_id,
+                "op": op,
+                "args": args or {},
+                "timeout_ms": timeout * 1000,
+                "expect": "result"
+            }
         }
         
         # Initialize pending request
@@ -137,7 +182,7 @@ class SyncMQTTHandler:
             if result.rc != mqtt.MQTT_ERR_SUCCESS:
                 raise Exception(f"Failed to publish command: {result.rc}")
             
-            logger.info(f"Sent command '{command}' to device '{device_id}'")
+            logger.info(f"Sent command '{op}' to device '{device_id}'")
             
             # Wait for response (polling)
             elapsed = 0
@@ -156,9 +201,9 @@ class SyncMQTTHandler:
                 raise Exception("No response received from device")
             
             # Check response status
-            if response.get("status") == "error":
-                error_msg = response.get("data", {}).get("error", "Unknown error")
-                raise Exception(f"Device error: {error_msg}")
+            status = response.get("payload", {}).get("status")
+            if status == "failed":
+                raise Exception("Device command failed")
             
             return response
             
@@ -193,7 +238,7 @@ class SyncMQTTHandler:
             "broker": self.mqtt_broker,
             "port": self.mqtt_port,
             "team": self.team_prefix,
-            "command_topic_pattern": f"{self.base_command_topic}/{{device_id}}/command",
-            "response_topic_pattern": f"{self.base_response_topic}/{{device_id}}/response",
+            "command_topic_pattern": f"{self.base_topic}/{{device_id}}/cmd/req",
+            "response_topic_pattern": f"{self.base_topic}/{{device_id}}/cmd/res",
             "connected": self.is_connected()
         }
