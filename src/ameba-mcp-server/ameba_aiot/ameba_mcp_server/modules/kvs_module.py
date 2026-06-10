@@ -36,15 +36,6 @@ class KVSModule(FeatureModule):
                 }
             ),
             Tool(
-                name="kvs_reactivate",
-                description="Reactivate KVS object detection with previously set objects (after 30-second recording completes)",
-                inputSchema={
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                }
-            ),
-            Tool(
                 name="kvs_wait_for_start",
                 description="Wait for KVS recording to start. Returns immediately when recording begins.",
                 inputSchema={
@@ -78,8 +69,6 @@ class KVSModule(FeatureModule):
         if name == "kvs_set_objects":
             objects = arguments.get("objects", [])
             return await self.kvs_set_objects(objects)
-        elif name == "kvs_reactivate":
-            return await self.kvs_reactivate()
         elif name == "kvs_wait_for_start":
             timeout = arguments.get("timeout", 180.0)
             return await self.kvs_wait_for_start(timeout)
@@ -107,19 +96,9 @@ class KVSModule(FeatureModule):
         if result["status"] == "success":
             result["objects_set"] = objects
             result["message"] = f"KVS armed for 30-second recording when detecting: {', '.join(objects)}"
-            result["note"] = "Recording will stop after 30 seconds. Use kvs_reactivate() to arm again."
+            result["note"] = "Recording will stop after 30 seconds. Use kvs_set_objects() again to arm again."
         
         return result
-    
-    async def kvs_reactivate(self) -> Dict[str, Any]:
-        """Reactivate KVS detection"""
-        if not self.last_kvs_objects:
-            return {
-                "status": "error",
-                "error": "No previous objects to reactivate. Use kvs_set_objects first."
-            }
-        
-        return await self.kvs_set_objects(self.last_kvs_objects)
     
     async def kvs_wait_for_start(self, timeout: float = 180.0) -> Dict[str, Any]:
         """Wait for KVS recording to start"""
