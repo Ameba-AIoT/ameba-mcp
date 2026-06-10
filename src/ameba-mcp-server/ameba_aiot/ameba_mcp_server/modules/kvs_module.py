@@ -178,7 +178,12 @@ class KVSModule(FeatureModule):
                     
                     fragment_count += text.lower().count("fragment")
                     
-                    if "sending end of frames done!" in buffer.lower():
+                    buffer_lower = buffer.lower()
+                    if (
+                        "sending end of frames done!" in buffer_lower
+                        or "sending out the end of frames" in buffer_lower
+                        or "pause kvs producer" in buffer_lower
+                    ):
                         return {
                             "status": "recording_completed",
                             "elapsed_time": round(elapsed_time, 2),
