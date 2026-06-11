@@ -54,7 +54,7 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 驗證安裝
 uv --version
  
-用uv安裝環境
+用uv安裝環境 (For Claude Desktop, we don't need to execute this step, it will automatically install the environment according to claude_desktop_config.json)
 cd D:\path\to\ameba-mcp
 uv venv --python 3.10
 .venv\Scripts\activate
@@ -66,6 +66,8 @@ uv pip install -e . (the dependencies is written in pyproject.toml)
 
 Add the following to your Claude Desktop configuration file:
 Windows: %APPDATA%\Claude\claude_desktop_config.json
+
+--directory: The location where pyproject.toml exist
 
 ```json
 {
@@ -79,17 +81,6 @@ Windows: %APPDATA%\Claude\claude_desktop_config.json
         "ameba-mcp",
         "--product",
         "ameba-pro2"
-      ]
-    },
-    "ameba-d": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "C:\\path\\to\\ameba-mcp-server",
-        "run",
-        "ameba-mcp",
-        "--product",
-        "ameba-d"
       ]
     }
   }
