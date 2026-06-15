@@ -54,7 +54,7 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 驗證安裝
 uv --version
  
-用uv安裝環境 (For Claude Desktop, we don't need to execute this step, it will automatically install the environment according to claude_desktop_config.json)
+用uv安裝環境
 cd D:\path\to\ameba-mcp
 uv venv --python 3.10
 .venv\Scripts\activate
