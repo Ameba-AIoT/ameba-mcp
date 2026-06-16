@@ -55,7 +55,7 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 uv --version
  
 用uv安裝環境
-cd D:\path\to\ameba-mcp
+cd D:\path\to\ameba-mcp-server (where pyproject.toml locate)
 uv venv --python 3.10
 .venv\Scripts\activate
 uv pip install -e . (the dependencies is written in pyproject.toml)
